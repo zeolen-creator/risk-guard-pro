@@ -105,7 +105,9 @@ export default function LandingPage() {
                 <Button variant="ghost" asChild>
                   <Link to="/auth">Sign In</Link>
                 </Button>
-                <Button variant="hero" asChild>
+               <Button asChild className="bg-primary hover:bg-primary/90">
+// OR use default variant:
+<Button asChild>
                   <Link to="/auth">Get Started</Link>
                 </Button>
               </>
@@ -252,7 +254,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 gradient-hero">
+      section className="py-20 bg-gradient-to-r from-primary to-accent"> // OR for a more subtle gradient: <section className="py-20 bg-gradient-to-br from-primary/90 to-primary">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Ready to Improve Your Risk Management?
