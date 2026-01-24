@@ -28,7 +28,7 @@ export interface RiskResult {
 export const WIZARD_STEPS = [
   { id: 1, title: "Select Hazards", description: "Choose relevant hazards" },
   { id: 2, title: "Probability", description: "Assign occurrence likelihood" },
-  { id: 3, title: "Weights & Impacts", description: "Set consequence weights" },
+  { id: 3, title: "Impacts", description: "Assign impact scores" },
   { id: 4, title: "Results", description: "View risk assessment" },
 ] as const;
 
