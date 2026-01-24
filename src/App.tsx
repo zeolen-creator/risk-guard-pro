@@ -12,6 +12,7 @@ import DashboardPage from "./pages/DashboardPage";
 import HazardsLibraryPage from "./pages/HazardsLibraryPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import ProfilePage from "./pages/ProfilePage";
+import NewAssessmentPage from "./pages/NewAssessmentPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/hazards" element={<ProtectedRoute><HazardsLibraryPage /></ProtectedRoute>} />
             <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/assessment/new" element={<ProtectedRoute><NewAssessmentPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

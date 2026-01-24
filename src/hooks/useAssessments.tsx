@@ -13,7 +13,7 @@ export interface Assessment {
   status: string;
   selected_hazards: string[];
   probabilities: Record<string, number>;
-  weights: Record<string, Record<string, number>>;
+  weights: Record<string, number>;
   impacts: Record<string, Record<string, number>>;
   total_risk: number;
   results: Record<string, unknown>;
@@ -85,7 +85,7 @@ export function useAssessments() {
         updated_at: a.updated_at,
         selected_hazards: parseJsonArray(a.selected_hazards),
         probabilities: parseJsonRecord<number>(a.probabilities),
-        weights: parseJsonRecord<Record<string, number>>(a.weights),
+        weights: parseJsonRecord<number>(a.weights),
         impacts: parseJsonRecord<Record<string, number>>(a.impacts),
         results: parseJsonRecord<unknown>(a.results),
       }));
@@ -129,16 +129,16 @@ export function useUpdateAssessment() {
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Assessment> & { id: string }) => {
       // Convert to Json compatible format
-      const dbUpdates: Record<string, Json | string | number | undefined> = {};
+      const dbUpdates: Record<string, unknown> = {};
       
       if (updates.title !== undefined) dbUpdates.title = updates.title;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.total_risk !== undefined) dbUpdates.total_risk = updates.total_risk;
-      if (updates.selected_hazards !== undefined) dbUpdates.selected_hazards = updates.selected_hazards as unknown as Json;
-      if (updates.probabilities !== undefined) dbUpdates.probabilities = updates.probabilities as unknown as Json;
-      if (updates.weights !== undefined) dbUpdates.weights = updates.weights as unknown as Json;
-      if (updates.impacts !== undefined) dbUpdates.impacts = updates.impacts as unknown as Json;
-      if (updates.results !== undefined) dbUpdates.results = updates.results as unknown as Json;
+      if (updates.selected_hazards !== undefined) dbUpdates.selected_hazards = updates.selected_hazards;
+      if (updates.probabilities !== undefined) dbUpdates.probabilities = updates.probabilities;
+      if (updates.weights !== undefined) dbUpdates.weights = updates.weights;
+      if (updates.impacts !== undefined) dbUpdates.impacts = updates.impacts;
+      if (updates.results !== undefined) dbUpdates.results = updates.results;
 
       const { data, error } = await supabase
         .from("assessments")
