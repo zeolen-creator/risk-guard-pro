@@ -75,6 +75,7 @@ export default function OnboardingPage() {
         region: data.region,
         size: data.size || null,
         description: data.description || null,
+        weights_configured: false,
       });
       setStep(2);
     } catch (error) {

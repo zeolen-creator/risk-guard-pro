@@ -11,6 +11,7 @@ export interface Organization {
   size: string | null;
   description: string | null;
   owner_id: string;
+  weights_configured: boolean;
   created_at: string;
   updated_at: string;
 }

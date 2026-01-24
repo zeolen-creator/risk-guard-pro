@@ -70,6 +70,48 @@ export type Database = {
           },
         ]
       }
+      consequence_weights: {
+        Row: {
+          consequence_id: string
+          created_at: string
+          id: string
+          org_id: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          consequence_id: string
+          created_at?: string
+          id?: string
+          org_id: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          consequence_id?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consequence_weights_consequence_id_fkey"
+            columns: ["consequence_id"]
+            isOneToOne: false
+            referencedRelation: "consequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consequence_weights_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consequences: {
         Row: {
           category: string
@@ -176,6 +218,7 @@ export type Database = {
           sector: string
           size: string | null
           updated_at: string
+          weights_configured: boolean
         }
         Insert: {
           created_at?: string
@@ -187,6 +230,7 @@ export type Database = {
           sector: string
           size?: string | null
           updated_at?: string
+          weights_configured?: boolean
         }
         Update: {
           created_at?: string
@@ -198,6 +242,7 @@ export type Database = {
           sector?: string
           size?: string | null
           updated_at?: string
+          weights_configured?: boolean
         }
         Relationships: []
       }

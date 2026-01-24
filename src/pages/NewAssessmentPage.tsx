@@ -6,17 +6,19 @@ import { z } from "zod";
 import { Link } from "react-router-dom";
 import { useHazards, useConsequences } from "@/hooks/useHazards";
 import { useCreateAssessment, useUpdateAssessment } from "@/hooks/useAssessments";
+import { useConsequenceWeightsMap } from "@/hooks/useConsequenceWeights";
+import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Shield, ArrowLeft, ArrowRight, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { WizardProgress } from "@/features/assessment/components/WizardProgress";
 import { HazardSelectionStep } from "@/features/assessment/components/HazardSelectionStep";
 import { ProbabilityStep } from "@/features/assessment/components/ProbabilityStep";
-import { WeightsImpactsStep } from "@/features/assessment/components/WeightsImpactsStep";
+import { ImpactsStep } from "@/features/assessment/components/ImpactsStep";
 import { ResultsStep } from "@/features/assessment/components/ResultsStep";
 import { calculateWeightedImpact, calculateRiskScore } from "@/features/assessment/types";
 
@@ -28,6 +30,8 @@ export default function NewAssessmentPage() {
   const navigate = useNavigate();
   const { data: hazards = [], isLoading: hazardsLoading } = useHazards();
   const { data: consequences = [], isLoading: consequencesLoading } = useConsequences();
+  const { data: weights = {}, isLoading: weightsLoading } = useConsequenceWeightsMap();
+  const { data: organization, isLoading: orgLoading } = useOrganization();
   const createAssessment = useCreateAssessment();
   const updateAssessment = useUpdateAssessment();
 
@@ -38,7 +42,6 @@ export default function NewAssessmentPage() {
   // Form state
   const [selectedHazards, setSelectedHazards] = useState<string[]>([]);
   const [probabilities, setProbabilities] = useState<Record<string, number>>({});
-  const [weights, setWeights] = useState<Record<string, number>>({});
   const [impacts, setImpacts] = useState<Record<string, Record<string, number>>>({});
 
   const form = useForm<z.infer<typeof titleSchema>>({
@@ -46,25 +49,16 @@ export default function NewAssessmentPage() {
     defaultValues: { title: "" },
   });
 
-  // Initialize default weights when consequences load
+  // Redirect to weights setup if not configured
   useEffect(() => {
-    if (consequences.length > 0 && Object.keys(weights).length === 0) {
-      const defaultWeight = Math.floor(100 / consequences.length);
-      const remainder = 100 - defaultWeight * consequences.length;
-      const initialWeights: Record<string, number> = {};
-      consequences.forEach((c, idx) => {
-        initialWeights[c.id] = defaultWeight + (idx === 0 ? remainder : 0);
-      });
-      setWeights(initialWeights);
+    if (!orgLoading && organization && !organization.weights_configured) {
+      toast.info("Please configure consequence weights first");
+      navigate("/settings/weights");
     }
-  }, [consequences]);
+  }, [organization, orgLoading, navigate]);
 
   const handleProbabilityChange = (hazardId: string, value: number) => {
     setProbabilities((prev) => ({ ...prev, [hazardId]: value }));
-  };
-
-  const handleWeightChange = (consequenceId: string, value: number) => {
-    setWeights((prev) => ({ ...prev, [consequenceId]: value }));
   };
 
   const handleImpactChange = (hazardId: string, consequenceId: string, value: number) => {
@@ -74,8 +68,6 @@ export default function NewAssessmentPage() {
     }));
   };
 
-  const totalWeight = Object.values(weights).reduce((sum, w) => sum + (w || 0), 0);
-
   const canProceed = () => {
     switch (currentStep) {
       case 1:
@@ -83,7 +75,7 @@ export default function NewAssessmentPage() {
       case 2:
         return selectedHazards.every((id) => probabilities[id] && probabilities[id] >= 1);
       case 3:
-        return totalWeight === 100;
+        return true; // Impacts are optional (default to 0)
       case 4:
         return true;
       default:
@@ -168,12 +160,17 @@ export default function NewAssessmentPage() {
     }
   };
 
-  if (hazardsLoading || consequencesLoading) {
+  if (hazardsLoading || consequencesLoading || weightsLoading || orgLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Don't render if weights not configured (will redirect)
+  if (!organization?.weights_configured) {
+    return null;
   }
 
   return (
@@ -247,13 +244,12 @@ export default function NewAssessmentPage() {
               />
             )}
             {currentStep === 3 && (
-              <WeightsImpactsStep
+              <ImpactsStep
                 hazards={hazards}
                 consequences={consequences}
                 selectedHazards={selectedHazards}
                 weights={weights}
                 impacts={impacts}
-                onWeightChange={handleWeightChange}
                 onImpactChange={handleImpactChange}
               />
             )}
