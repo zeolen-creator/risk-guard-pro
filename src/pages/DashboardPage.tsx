@@ -20,16 +20,6 @@ import {
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-// Mock data for the chart
-const riskTrendData = [
-  { month: "Jan", risk: 65 },
-  { month: "Feb", risk: 72 },
-  { month: "Mar", risk: 58 },
-  { month: "Apr", risk: 45 },
-  { month: "May", risk: 52 },
-  { month: "Jun", risk: 48 },
-];
-
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -56,17 +46,74 @@ export default function DashboardPage() {
     return null;
   }
 
+  // Generate real risk trend data from assessments
+  const generateRiskTrendData = () => {
+    if (!assessments || assessments.length === 0) {
+      // Return default data if no assessments yet
+      return [
+        { month: "Jan", risk: 0 },
+        { month: "Feb", risk: 0 },
+        { month: "Mar", risk: 0 },
+        { month: "Apr", risk: 0 },
+        { month: "May", risk: 0 },
+        { month: "Jun", risk: 0 },
+      ];
+    }
+
+    // Group assessments by month
+    const monthlyData: Record<string, { risks: number[]; count: number }> = {};
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    assessments.forEach(assessment => {
+      if (assessment.total_risk && assessment.total_risk > 0) {
+        const date = new Date(assessment.created_at);
+        const monthKey = monthNames[date.getMonth()];
+        
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { risks: [], count: 0 };
+        }
+        
+        monthlyData[monthKey].risks.push(assessment.total_risk);
+        monthlyData[monthKey].count++;
+      }
+    });
+
+    // Calculate average risk per month for last 6 months
+    const now = new Date();
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      return monthNames[date.getMonth()];
+    });
+
+    return last6Months.map(month => ({
+      month,
+      risk: monthlyData[month]?.risks.length > 0
+        ? Math.round(monthlyData[month].risks.reduce((sum, r) => sum + r, 0) / monthlyData[month].risks.length)
+        : 0
+    }));
+  };
+
+  const riskTrendData = generateRiskTrendData();
   const recentAssessments = assessments?.slice(0, 5) || [];
   const totalAssessments = assessments?.length || 0;
   const draftAssessments = assessments?.filter(a => a.status === "draft").length || 0;
   const completedAssessments = assessments?.filter(a => a.status === "completed").length || 0;
+  const highRiskItems = assessments?.filter(a => a.total_risk > 70).length || 0;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
-        return <Badge className="bg-success text-success-foreground">Completed</Badge>;
+        return (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+            Completed
+          </Badge>
+        );
       case "in_progress":
-        return <Badge className="bg-warning text-warning-foreground">In Progress</Badge>;
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">
+            In Progress
+          </Badge>
+        );
       default:
         return <Badge variant="secondary">Draft</Badge>;
     }
@@ -138,8 +185,8 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground">In Progress</p>
                   <p className="text-2xl font-bold">{draftAssessments}</p>
                 </div>
-                <div className="p-3 rounded-full bg-warning/10">
-                  <Clock className="h-5 w-5 text-warning" />
+                <div className="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900">
+                  <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                 </div>
               </div>
             </CardContent>
@@ -152,8 +199,8 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground">Completed</p>
                   <p className="text-2xl font-bold">{completedAssessments}</p>
                 </div>
-                <div className="p-3 rounded-full bg-success/10">
-                  <TrendingUp className="h-5 w-5 text-success" />
+                <div className="p-3 rounded-full bg-green-100 dark:bg-green-900">
+                  <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </CardContent>
@@ -164,10 +211,10 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">High Risk Items</p>
-                  <p className="text-2xl font-bold">-</p>
+                  <p className="text-2xl font-bold">{highRiskItems}</p>
                 </div>
-                <div className="p-3 rounded-full bg-destructive/10">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                <div className="p-3 rounded-full bg-red-100 dark:bg-red-900">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </CardContent>
@@ -198,9 +245,9 @@ export default function DashboardPage() {
                     <Line
                       type="monotone"
                       dataKey="risk"
-                      stroke="hsl(var(--accent))"
+                      stroke="hsl(var(--primary))"
                       strokeWidth={2}
-                      dot={{ fill: "hsl(var(--accent))", strokeWidth: 2 }}
+                      dot={{ fill: "hsl(var(--primary))", strokeWidth: 2 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -215,7 +262,10 @@ export default function DashboardPage() {
               <CardDescription>Get started with your risk assessment</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full justify-start" variant="accent" asChild>
+              <Button 
+                className="w-full justify-start bg-primary hover:bg-primary/90" 
+                asChild
+              >
                 <Link to="/assessment/new">
                   <Plus className="mr-2 h-4 w-4" />
                   New Assessment
@@ -257,7 +307,10 @@ export default function DashboardPage() {
               <div className="text-center py-8">
                 <AlertTriangle className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                 <p className="text-muted-foreground">No assessments yet</p>
-                <Button className="mt-4" variant="accent" asChild>
+                <Button 
+                  className="mt-4 bg-primary hover:bg-primary/90" 
+                  asChild
+                >
                   <Link to="/assessment/new">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Your First Assessment
