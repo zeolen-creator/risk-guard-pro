@@ -105,9 +105,7 @@ export default function LandingPage() {
                 <Button variant="ghost" asChild>
                   <Link to="/auth">Sign In</Link>
                 </Button>
-               <Button asChild className="bg-primary hover:bg-primary/90">
-// OR use default variant:
-<Button asChild>
+                <Button asChild>
                   <Link to="/auth">Get Started</Link>
                 </Button>
               </>
@@ -119,7 +117,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
             <Zap className="h-4 w-4" />
             AI-Powered Risk Assessment
           </div>
@@ -127,7 +125,7 @@ export default function LandingPage() {
           <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 max-w-4xl mx-auto leading-tight">
             Identify Hazards.
             <br />
-            <span className="text-accent">Quantify Risks.</span>
+            <span className="text-primary">Quantify Risks.</span>
             <br />
             Protect Your Organization.
           </h1>
@@ -138,28 +136,28 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="xl" variant="hero" asChild>
+            <Button size="lg" asChild>
               <Link to="/auth">
                 Start Free Assessment
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button size="xl" variant="outline" asChild>
+            <Button size="lg" variant="outline" asChild>
               <a href="#features">Learn More</a>
             </Button>
           </div>
 
           <div className="mt-12 flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-success" />
+              <CheckCircle className="h-4 w-4 text-green-500" />
               <span>24 Hazard Categories</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-success" />
+              <CheckCircle className="h-4 w-4 text-green-500" />
               <span>10 Consequence Types</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-success" />
+              <CheckCircle className="h-4 w-4 text-green-500" />
               <span>Real-time Collaboration</span>
             </div>
           </div>
@@ -186,8 +184,8 @@ export default function LandingPage() {
                 className="p-6 rounded-xl bg-card border shadow-sm hover:shadow-md transition-shadow"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="p-3 rounded-lg bg-accent/10 w-fit mb-4">
-                  <feature.icon className="h-6 w-6 text-accent" />
+                <div className="p-3 rounded-lg bg-primary/10 w-fit mb-4">
+                  <feature.icon className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
                 <p className="text-muted-foreground text-sm">{feature.description}</p>
@@ -216,12 +214,12 @@ export default function LandingPage() {
                 key={plan.name}
                 className={`relative p-6 rounded-xl border ${
                   plan.popular
-                    ? "border-accent bg-card shadow-xl ring-2 ring-accent/20"
+                    ? "border-primary bg-card shadow-xl ring-2 ring-primary/20"
                     : "bg-card shadow-sm"
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-accent text-accent-foreground text-xs font-semibold rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full">
                     Most Popular
                   </div>
                 )}
@@ -235,14 +233,14 @@ export default function LandingPage() {
                 <ul className="space-y-3 mb-6">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
                 <Button
                   className="w-full"
-                  variant={plan.popular ? "hero" : "outline"}
+                  variant={plan.popular ? "default" : "outline"}
                   asChild
                 >
                   <Link to="/auth">{plan.cta}</Link>
@@ -254,16 +252,20 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      section className="py-20 bg-gradient-to-r from-primary to-accent"> // OR for a more subtle gradient: <section className="py-20 bg-gradient-to-br from-primary/90 to-primary">
+      <section className="py-20 bg-gradient-to-r from-primary via-primary to-primary/80">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Ready to Improve Your Risk Management?
           </h2>
-          <p className="text-white/80 mb-8 max-w-2xl mx-auto">
+          <p className="text-white/90 mb-8 max-w-2xl mx-auto">
             Join organizations that use HIRA Pro to systematically identify,
             assess, and mitigate operational risks.
           </p>
-          <Button size="xl" variant="hero" asChild>
+          <Button 
+            size="lg" 
+            className="bg-white hover:bg-white/90 text-primary font-semibold shadow-lg"
+            asChild
+          >
             <Link to="/auth">
               Start Your Free Assessment
               <ArrowRight className="ml-2 h-5 w-5" />
