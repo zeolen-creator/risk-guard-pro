@@ -14,6 +14,141 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_research_cache: {
+        Row: {
+          cache_key: string
+          confidence_level: number | null
+          created_at: string
+          expires_at: string
+          hazard_type: string
+          hit_count: number
+          id: string
+          industry: string | null
+          location: string | null
+          org_id: string
+          query_params: Json
+          research_type: string
+          result_data: Json
+          sources: Json
+        }
+        Insert: {
+          cache_key: string
+          confidence_level?: number | null
+          created_at?: string
+          expires_at?: string
+          hazard_type: string
+          hit_count?: number
+          id?: string
+          industry?: string | null
+          location?: string | null
+          org_id: string
+          query_params?: Json
+          research_type: string
+          result_data?: Json
+          sources?: Json
+        }
+        Update: {
+          cache_key?: string
+          confidence_level?: number | null
+          created_at?: string
+          expires_at?: string
+          hazard_type?: string
+          hit_count?: number
+          id?: string
+          industry?: string | null
+          location?: string | null
+          org_id?: string
+          query_params?: Json
+          research_type?: string
+          result_data?: Json
+          sources?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_research_cache_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_research_logs: {
+        Row: {
+          assessment_id: string | null
+          cache_hit: boolean
+          confidence_score: number | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          hazard_id: string | null
+          id: string
+          org_id: string
+          request_params: Json
+          request_type: string
+          response_data: Json | null
+          sources_found: number | null
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          assessment_id?: string | null
+          cache_hit?: boolean
+          confidence_score?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          hazard_id?: string | null
+          id?: string
+          org_id: string
+          request_params?: Json
+          request_type: string
+          response_data?: Json | null
+          sources_found?: number | null
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          assessment_id?: string | null
+          cache_hit?: boolean
+          confidence_score?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          hazard_id?: string | null
+          id?: string
+          org_id?: string
+          request_params?: Json
+          request_type?: string
+          response_data?: Json | null
+          sources_found?: number | null
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_research_logs_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_research_logs_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_research_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessments: {
         Row: {
           created_at: string
@@ -136,6 +271,71 @@ export type Database = {
         }
         Relationships: []
       }
+      hazard_assignments: {
+        Row: {
+          assessment_id: string
+          assigned_at: string
+          assigned_to: string
+          completed_at: string | null
+          hazard_id: string
+          id: string
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          assigned_at?: string
+          assigned_to: string
+          completed_at?: string | null
+          hazard_id: string
+          id?: string
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          assigned_at?: string
+          assigned_to?: string
+          completed_at?: string | null
+          hazard_id?: string
+          id?: string
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hazard_assignments_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hazard_assignments_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hazard_assignments_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hazard_assignments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hazards: {
         Row: {
           category: string
@@ -212,8 +412,10 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          key_facilities: string[] | null
           name: string
           owner_id: string
+          primary_location: string | null
           region: string
           sector: string
           size: string | null
@@ -224,8 +426,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          key_facilities?: string[] | null
           name: string
           owner_id: string
+          primary_location?: string | null
           region: string
           sector: string
           size?: string | null
@@ -236,8 +440,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          key_facilities?: string[] | null
           name?: string
           owner_id?: string
+          primary_location?: string | null
           region?: string
           sector?: string
           size?: string | null
@@ -255,6 +461,8 @@ export type Database = {
           id: string
           org_id: string | null
           role_title: string | null
+          special_considerations: string | null
+          specific_facilities: string[] | null
           updated_at: string
           user_id: string
         }
@@ -266,6 +474,8 @@ export type Database = {
           id?: string
           org_id?: string | null
           role_title?: string | null
+          special_considerations?: string | null
+          specific_facilities?: string[] | null
           updated_at?: string
           user_id: string
         }
@@ -277,6 +487,8 @@ export type Database = {
           id?: string
           org_id?: string | null
           role_title?: string | null
+          special_considerations?: string | null
+          specific_facilities?: string[] | null
           updated_at?: string
           user_id?: string
         }
@@ -389,6 +601,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      release_stale_assignments: { Args: never; Returns: number }
       user_belongs_to_org: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
