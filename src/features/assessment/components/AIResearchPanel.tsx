@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ interface AIResearchPanelProps {
   currentConsequenceValues?: Record<string, number>;
 }
 
-export const AIResearchPanel = forwardRef<HTMLDivElement, AIResearchPanelProps>(function AIResearchPanel({
+export function AIResearchPanel({
   hazardId,
   hazardName,
   hazardCategory,
@@ -32,7 +32,7 @@ export const AIResearchPanel = forwardRef<HTMLDivElement, AIResearchPanelProps>(
   onApplyConsequenceValues,
   currentValue,
   currentConsequenceValues,
-}, ref) {
+}: AIResearchPanelProps) {
   const { research, isLoading, getCachedResult, hasOrganizationContext } = useAIResearch();
   const [showPanel, setShowPanel] = useState(false);
   const [result, setResult] = useState<AIResearchData | null>(null);
@@ -124,7 +124,7 @@ export const AIResearchPanel = forwardRef<HTMLDivElement, AIResearchPanelProps>(
   }
 
   return (
-    <div ref={ref} className="w-full">
+    <div className="w-full">
       {!showPanel ? (
         <Button
           variant="outline"
@@ -425,4 +425,4 @@ export const AIResearchPanel = forwardRef<HTMLDivElement, AIResearchPanelProps>(
       )}
     </div>
   );
-});
+}
