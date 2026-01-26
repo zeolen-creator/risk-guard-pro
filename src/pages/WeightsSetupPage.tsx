@@ -4,12 +4,23 @@ import { Link } from "react-router-dom";
 import { useConsequences } from "@/hooks/useHazards";
 import { useSaveConsequenceWeights, useConsequenceWeightsMap } from "@/hooks/useConsequenceWeights";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useIsAdmin } from "@/hooks/useUserRole";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,18 +31,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, AlertCircle, Loader2, Check, Scale } from "lucide-react";
+import { Shield, AlertCircle, Loader2, Check, Scale, Lock, Edit, Save, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 export default function WeightsSetupPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: consequences = [], isLoading: consequencesLoading } = useConsequences();
   const { data: existingWeights = {}, isLoading: weightsLoading } = useConsequenceWeightsMap();
   const { data: organization } = useOrganization();
+  const { isAdmin, isLoading: roleLoading } = useIsAdmin();
   const saveWeights = useSaveConsequenceWeights();
 
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const isFirstTimeSetup = !organization?.weights_configured;
 
@@ -53,6 +70,13 @@ export default function WeightsSetupPage() {
     }
   }, [consequences, existingWeights]);
 
+  // Auto-enable edit mode for first time setup
+  useEffect(() => {
+    if (isFirstTimeSetup) {
+      setIsEditMode(true);
+    }
+  }, [isFirstTimeSetup]);
+
   const handleWeightChange = (consequenceId: string, value: number) => {
     setWeights((prev) => ({
       ...prev,
@@ -62,6 +86,41 @@ export default function WeightsSetupPage() {
 
   const totalWeight = Object.values(weights).reduce((sum, w) => sum + (w || 0), 0);
   const isValidWeight = totalWeight === 100;
+
+  const handleEditClick = () => {
+    if (!isAdmin) {
+      toast.error("Only administrators can edit weights");
+      return;
+    }
+    setShowPasswordDialog(true);
+  };
+
+  const handleVerifyAndEdit = async () => {
+    if (!user?.email || !password) return;
+
+    setIsVerifying(true);
+    try {
+      // Re-authenticate with Supabase
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
+
+      if (error) {
+        toast.error("Incorrect password. Please try again.");
+        return;
+      }
+
+      setIsEditMode(true);
+      setShowPasswordDialog(false);
+      setPassword("");
+      toast.success("Password verified. You can now edit weights.");
+    } catch (error) {
+      toast.error("Verification failed. Please try again.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleSave = () => {
     if (!isValidWeight) {
@@ -81,13 +140,24 @@ export default function WeightsSetupPage() {
     try {
       await saveWeights.mutateAsync({ weights });
       toast.success("Consequence weights saved successfully!");
-      navigate("/dashboard");
+      setIsEditMode(false);
+      if (isFirstTimeSetup) {
+        navigate("/dashboard");
+      }
     } catch (error) {
       toast.error("Failed to save weights");
     }
   };
 
-  if (consequencesLoading || weightsLoading) {
+  const handleCancel = () => {
+    // Reset to existing weights
+    if (Object.keys(existingWeights).length > 0) {
+      setWeights(existingWeights);
+    }
+    setIsEditMode(false);
+  };
+
+  if (consequencesLoading || weightsLoading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -108,7 +178,7 @@ export default function WeightsSetupPage() {
           </Link>
           {!isFirstTimeSetup && (
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/dashboard">Cancel</Link>
+              <Link to="/dashboard">Back to Dashboard</Link>
             </Button>
           )}
         </div>
@@ -120,12 +190,14 @@ export default function WeightsSetupPage() {
             <Scale className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold mb-2">
-            {isFirstTimeSetup ? "Configure Consequence Weights" : "Update Consequence Weights"}
+            {isFirstTimeSetup ? "Configure Consequence Weights" : "Consequence Weights"}
           </h1>
           <p className="text-muted-foreground">
             {isFirstTimeSetup
               ? "Before creating assessments, set how important each consequence type is to your organization. These weights will apply to all future risk assessments."
-              : "Update how your organization weighs each consequence type. Changes will apply to future assessments only."}
+              : isEditMode
+              ? "Update how your organization weighs each consequence type. Changes will apply to future assessments only."
+              : "View how your organization weighs each consequence type in risk assessments."}
           </p>
         </div>
 
@@ -133,8 +205,17 @@ export default function WeightsSetupPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg">Consequence Weights</CardTitle>
-                <CardDescription>Distribute 100% across all consequences</CardDescription>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  {isEditMode ? (
+                    <Edit className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  Consequence Weights
+                </CardTitle>
+                <CardDescription>
+                  {isEditMode ? "Distribute 100% across all consequences" : "Current weight distribution"}
+                </CardDescription>
               </div>
               <Badge
                 variant={isValidWeight ? "default" : "destructive"}
@@ -161,19 +242,25 @@ export default function WeightsSetupPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={weights[consequence.id] || 0}
-                        onChange={(e) =>
-                          handleWeightChange(
-                            consequence.id,
-                            parseInt(e.target.value) || 0
-                          )
-                        }
-                        className="w-20 text-center"
-                      />
+                      {isEditMode ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={weights[consequence.id] || 0}
+                          onChange={(e) =>
+                            handleWeightChange(
+                              consequence.id,
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          className="w-20 text-center"
+                        />
+                      ) : (
+                        <div className="w-20 h-9 flex items-center justify-center bg-background rounded-md border text-sm font-medium">
+                          {weights[consequence.id] || 0}
+                        </div>
+                      )}
                       <span className="text-sm text-muted-foreground w-4">%</span>
                     </div>
                   </div>
@@ -181,7 +268,7 @@ export default function WeightsSetupPage() {
               </div>
             </ScrollArea>
 
-            {!isValidWeight && (
+            {isEditMode && !isValidWeight && (
               <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-destructive/10 text-destructive">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span className="text-sm">
@@ -191,25 +278,91 @@ export default function WeightsSetupPage() {
             )}
           </CardContent>
           <CardFooter className="flex justify-end gap-3 pt-4 border-t">
-            {!isFirstTimeSetup && (
-              <Button variant="outline" asChild>
-                <Link to="/dashboard">Cancel</Link>
-              </Button>
+            {isEditMode ? (
+              <>
+                {!isFirstTimeSetup && (
+                  <Button variant="outline" onClick={handleCancel}>
+                    Cancel
+                  </Button>
+                )}
+                <Button
+                  onClick={handleSave}
+                  disabled={!isValidWeight || saveWeights.isPending}
+                >
+                  {saveWeights.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  {isFirstTimeSetup ? "Save & Continue" : "Save Weights"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" asChild>
+                  <Link to="/dashboard">Back to Dashboard</Link>
+                </Button>
+                {isAdmin && (
+                  <Button onClick={handleEditClick}>
+                    <Lock className="mr-2 h-4 w-4" />
+                    Edit Weights
+                  </Button>
+                )}
+              </>
             )}
-            <Button
-              onClick={handleSave}
-              disabled={!isValidWeight || saveWeights.isPending}
-            >
-              {saveWeights.isPending ? (
+          </CardFooter>
+        </Card>
+
+        {!isAdmin && !isFirstTimeSetup && (
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Only administrators can modify consequence weights.
+          </p>
+        )}
+      </main>
+
+      {/* Password Verification Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Verify Your Identity
+            </DialogTitle>
+            <DialogDescription>
+              Please re-enter your password to confirm you want to edit the consequence weights.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                onKeyDown={(e) => e.key === "Enter" && handleVerifyAndEdit()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowPasswordDialog(false);
+              setPassword("");
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleVerifyAndEdit} disabled={!password || isVerifying}>
+              {isVerifying ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}
-              {isFirstTimeSetup ? "Save & Continue" : "Update Weights"}
+              Verify & Edit
             </Button>
-          </CardFooter>
-        </Card>
-      </main>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
