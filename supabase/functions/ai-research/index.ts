@@ -204,7 +204,8 @@ ORGANIZATION CONTEXT:
 You must respond using the research_result tool to provide structured output.`;
 
     // Build consequence list for the prompt if this is consequence research
-    const consequencesList = consequences?.map(c => `- ${c.name} (weight: ${c.weight}%)`).join("\n") || "";
+    // IMPORTANT: Include IDs so the AI uses exact IDs in its response
+    const consequencesList = consequences?.map(c => `- ID: "${c.id}" | Name: "${c.name}" | Weight: ${c.weight}%`).join("\n") || "";
 
     const userPrompt = research_type === "probability"
       ? `Research the probability/likelihood of "${hazard_name}" (category: ${hazard_category}) occurring in ${org_context.primary_location || org_context.region} for a ${org_context.sector} organization.
@@ -216,9 +217,25 @@ Find:
 4. Suggested probability score (1-6 scale where 1=Rare/once in 100+ years, 6=Certain/multiple times per year)
 
 Be conservative - if data is limited, suggest lower confidence and note data limitations.`
-      : `Research the potential consequences/impacts of "${hazard_name}" (category: ${hazard_category}) on a ${org_context.sector} organization in ${org_context.primary_location || org_context.region}.
+      : `Research the potential consequences/impacts of "${hazard_name}" (category: ${hazard_category}) on ${org_context.sector} organizations.
 
-IMPORTANT: You must provide a SEPARATE impact score (0-3) for EACH of the following consequence types:
+CONTEXT: The user's organization is located in ${org_context.primary_location || org_context.region}, but IMPACT RESEARCH SHOULD BE GLOBAL IN SCOPE.
+
+CRITICAL INSTRUCTION FOR IMPACT RESEARCH:
+Unlike probability research (which is location-specific), impact research should look at WORLDWIDE data because:
+- A hospital in Toronto will experience similar impacts from an earthquake as a hospital in Japan or California
+- The consequences of a flood on critical infrastructure are similar whether in the UK, US, or Canada
+- Industry-specific impacts are transferable across regions
+
+RESEARCH SCOPE - Look for sources from:
+1. GLOBAL case studies from similar ${org_context.sector} organizations worldwide
+2. International disaster reports (WHO, UN OCHA, FEMA, academic journals)
+3. Industry-specific incident reports from ANY country
+4. Historical impact data from similar events in comparable organizations globally
+5. Local sources are acceptable but should NOT be the only sources
+
+IMPORTANT: You MUST provide a SEPARATE impact score (0-3) for EACH of the following consequence types.
+Use the EXACT IDs provided below in your response:
 ${consequencesList}
 
 Impact Scale:
@@ -227,13 +244,13 @@ Impact Scale:
 - 2 = Moderate impact  
 - 3 = Severe impact
 
-For EACH consequence type, research and provide:
-1. Historical impact data from similar incidents
-2. Industry-specific consequence patterns for this type
-3. A suggested impact score with brief rationale
+For EACH consequence type:
+1. Use the EXACT consequence_id from the list above
+2. Research historical impact data from similar incidents GLOBALLY
+3. Consider ${org_context.sector}-specific consequence patterns
+4. Provide a suggested impact score with brief rationale
 
-If you cannot find reliable data for a specific consequence type, set its score to null and explain why.
-Focus on impacts relevant to ${org_context.sector} sector operations.`;
+If you cannot find reliable data for a specific consequence type, set its score to null and explain why.`;
 
     console.log("Calling Lovable AI for research:", { hazard_name, research_type, org: org_context.name });
 
