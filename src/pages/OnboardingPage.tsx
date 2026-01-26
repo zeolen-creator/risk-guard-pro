@@ -76,6 +76,8 @@ export default function OnboardingPage() {
         size: data.size || null,
         description: data.description || null,
         weights_configured: false,
+        primary_location: null,
+        key_facilities: null,
       });
       setStep(2);
     } catch (error) {

@@ -241,6 +241,7 @@ export default function NewAssessmentPage() {
                 selectedHazards={selectedHazards}
                 probabilities={probabilities}
                 onProbabilityChange={handleProbabilityChange}
+                assessmentId={assessmentId || undefined}
               />
             )}
             {currentStep === 3 && (
@@ -251,6 +252,7 @@ export default function NewAssessmentPage() {
                 weights={weights}
                 impacts={impacts}
                 onImpactChange={handleImpactChange}
+                assessmentId={assessmentId || undefined}
               />
             )}
             {currentStep === 4 && (

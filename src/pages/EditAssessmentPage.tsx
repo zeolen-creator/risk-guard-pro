@@ -268,6 +268,7 @@ export default function EditAssessmentPage() {
                 selectedHazards={selectedHazards}
                 probabilities={probabilities}
                 onProbabilityChange={handleProbabilityChange}
+                assessmentId={id}
               />
             )}
             {currentStep === 3 && (
@@ -278,6 +279,7 @@ export default function EditAssessmentPage() {
                 weights={weights}
                 impacts={impacts}
                 onImpactChange={handleImpactChange}
+                assessmentId={id}
               />
             )}
             {currentStep === 4 && (
