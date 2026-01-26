@@ -15,6 +15,7 @@ import ProfilePage from "./pages/ProfilePage";
 import NewAssessmentPage from "./pages/NewAssessmentPage";
 import EditAssessmentPage from "./pages/EditAssessmentPage";
 import WeightsSetupPage from "./pages/WeightsSetupPage";
+import AssessmentHistoryPage from "./pages/AssessmentHistoryPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/assessment/new" element={<ProtectedRoute><NewAssessmentPage /></ProtectedRoute>} />
             <Route path="/assessment/:id" element={<ProtectedRoute><EditAssessmentPage /></ProtectedRoute>} />
             <Route path="/settings/weights" element={<ProtectedRoute><WeightsSetupPage /></ProtectedRoute>} />
+            <Route path="/assessments/history" element={<ProtectedRoute><AssessmentHistoryPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -1,11 +1,21 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useAssessments } from "@/hooks/useAssessments";
+import { useDeleteAssessment } from "@/hooks/useDeleteAssessment";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Shield,
   Plus,
@@ -17,8 +27,12 @@ import {
   User,
   Building2,
   Loader2,
+  History,
+  Scale,
+  Trash2,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { toast } from "sonner";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -26,10 +40,33 @@ export default function DashboardPage() {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: organization, isLoading: orgLoading } = useOrganization();
   const { data: assessments, isLoading: assessmentsLoading } = useAssessments();
+  const deleteAssessment = useDeleteAssessment();
+
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; assessment: { id: string; title: string } | null }>({
+    open: false,
+    assessment: null,
+  });
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, assessment: { id: string; title: string }) => {
+    e.stopPropagation();
+    setDeleteDialog({ open: true, assessment });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteDialog.assessment) return;
+
+    try {
+      await deleteAssessment.mutateAsync(deleteDialog.assessment.id);
+      toast.success("Assessment deleted successfully");
+      setDeleteDialog({ open: false, assessment: null });
+    } catch (error) {
+      toast.error("Failed to delete assessment");
+    }
   };
 
   if (profileLoading || orgLoading) {
@@ -49,7 +86,6 @@ export default function DashboardPage() {
   // Generate real risk trend data from assessments
   const generateRiskTrendData = () => {
     if (!assessments || assessments.length === 0) {
-      // Return default data if no assessments yet
       return [
         { month: "Jan", risk: 0 },
         { month: "Feb", risk: 0 },
@@ -60,7 +96,6 @@ export default function DashboardPage() {
       ];
     }
 
-    // Group assessments by month
     const monthlyData: Record<string, { risks: number[]; count: number }> = {};
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
@@ -78,7 +113,6 @@ export default function DashboardPage() {
       }
     });
 
-    // Calculate average risk per month for last 6 months
     const now = new Date();
     const last6Months = Array.from({ length: 6 }, (_, i) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
@@ -283,6 +317,18 @@ export default function DashboardPage() {
                   Upload Documents
                 </Link>
               </Button>
+              <Button className="w-full justify-start" variant="outline" asChild>
+                <Link to="/assessments/history">
+                  <History className="mr-2 h-4 w-4" />
+                  View Past Assessments
+                </Link>
+              </Button>
+              <Button className="w-full justify-start" variant="outline" asChild>
+                <Link to="/settings/weights">
+                  <Scale className="mr-2 h-4 w-4" />
+                  View Consequence Weights
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -295,7 +341,7 @@ export default function DashboardPage() {
               <CardDescription>Your latest hazard identification activities</CardDescription>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/assessments">View All</Link>
+              <Link to="/assessments/history">View All</Link>
             </Button>
           </CardHeader>
           <CardContent>
@@ -343,6 +389,16 @@ export default function DashboardPage() {
                         </span>
                       )}
                       {getStatusBadge(assessment.status)}
+                      {assessment.status === "draft" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => handleDeleteClick(e, { id: assessment.id, title: assessment.title })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -351,6 +407,42 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Assessment
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deleteDialog.assessment?.title}"?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
+            <p className="font-medium">Warning: This action cannot be undone.</p>
+            <p className="mt-1">This will permanently delete the assessment and all related hazard assignments.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, assessment: null })}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleteAssessment.isPending}
+            >
+              {deleteAssessment.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete Permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
