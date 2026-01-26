@@ -6,6 +6,7 @@ import { IMPACT_SCORES } from "@/constants/hazards";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Target, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AIResearchPanel } from "./AIResearchPanel";
 
 interface ImpactsStepProps {
   hazards: Hazard[];
@@ -14,6 +15,7 @@ interface ImpactsStepProps {
   weights: Record<string, number>;
   impacts: Record<string, Record<string, number>>;
   onImpactChange: (hazardId: string, consequenceId: string, value: number) => void;
+  assessmentId?: string;
 }
 
 export function ImpactsStep({
@@ -23,6 +25,7 @@ export function ImpactsStep({
   weights,
   impacts,
   onImpactChange,
+  assessmentId,
 }: ImpactsStepProps) {
   const selectedHazardData = hazards.filter((h) => selectedHazards.includes(h.id));
 
@@ -80,48 +83,59 @@ export function ImpactsStep({
                 </CardTitle>
               </CardHeader>
               <CardContent className="py-3 px-4 pt-0">
-                <div className="grid gap-2">
-                  {activeConsequences.map((consequence) => (
-                    <div
-                      key={consequence.id}
-                      className="flex items-center justify-between gap-2 p-2 rounded bg-muted/30"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-sm truncate">
-                          {consequence.category}
-                        </span>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {weights[consequence.id]}%
-                        </Badge>
-                      </div>
-                      <Select
-                        value={String(
-                          impacts[hazard.id]?.[consequence.id] ?? 0
-                        )}
-                        onValueChange={(value) =>
-                          onImpactChange(
-                            hazard.id,
-                            consequence.id,
-                            parseInt(value)
-                          )
-                        }
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    {activeConsequences.map((consequence) => (
+                      <div
+                        key={consequence.id}
+                        className="flex items-center justify-between gap-2 p-2 rounded bg-muted/30"
                       >
-                        <SelectTrigger className="w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {IMPACT_SCORES.map((score) => (
-                            <SelectItem
-                              key={score.score}
-                              value={String(score.score)}
-                            >
-                              {score.score} - {score.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-sm truncate">
+                            {consequence.category}
+                          </span>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {weights[consequence.id]}%
+                          </Badge>
+                        </div>
+                        <Select
+                          value={String(
+                            impacts[hazard.id]?.[consequence.id] ?? 0
+                          )}
+                          onValueChange={(value) =>
+                            onImpactChange(
+                              hazard.id,
+                              consequence.id,
+                              parseInt(value)
+                            )
+                          }
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {IMPACT_SCORES.map((score) => (
+                              <SelectItem
+                                key={score.score}
+                                value={String(score.score)}
+                              >
+                                {score.score} - {score.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* AI Research Panel for consequence research */}
+                  <AIResearchPanel
+                    hazardId={hazard.id}
+                    hazardName={hazard.category}
+                    hazardCategory={hazard.category}
+                    researchType="consequence"
+                    assessmentId={assessmentId}
+                  />
                 </div>
               </CardContent>
             </Card>

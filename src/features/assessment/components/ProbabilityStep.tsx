@@ -13,12 +13,14 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { AIResearchPanel } from "./AIResearchPanel";
 
 interface ProbabilityStepProps {
   hazards: Hazard[];
   selectedHazards: string[];
   probabilities: Record<string, number>;
   onProbabilityChange: (hazardId: string, value: number) => void;
+  assessmentId?: string;
 }
 
 export function ProbabilityStep({
@@ -26,6 +28,7 @@ export function ProbabilityStep({
   selectedHazards,
   probabilities,
   onProbabilityChange,
+  assessmentId,
 }: ProbabilityStepProps) {
   const [showTable, setShowTable] = useState(true);
   const selectedHazardData = hazards.filter((h) =>
@@ -115,6 +118,17 @@ export function ProbabilityStep({
                         {probabilityInfo.description} ({probabilityInfo.percentChance})
                       </p>
                     )}
+                    
+                    {/* AI Research Panel */}
+                    <AIResearchPanel
+                      hazardId={hazard.id}
+                      hazardName={hazard.category}
+                      hazardCategory={hazard.category}
+                      researchType="probability"
+                      assessmentId={assessmentId}
+                      currentValue={currentValue}
+                      onApplyValue={(value) => onProbabilityChange(hazard.id, value)}
+                    />
                   </div>
                 </CardContent>
               </Card>
