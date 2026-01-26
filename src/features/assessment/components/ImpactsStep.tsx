@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Target, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AIResearchPanel } from "./AIResearchPanel";
+import { ConsequenceInfo } from "@/hooks/useAIResearch";
 
 interface ImpactsStepProps {
   hazards: Hazard[];
@@ -31,6 +32,20 @@ export function ImpactsStep({
 
   // Get non-zero weighted consequences (only show consequences that matter)
   const activeConsequences = consequences.filter((c) => (weights[c.id] || 0) > 0);
+
+  // Build consequences info for AI research
+  const consequencesForAI: ConsequenceInfo[] = activeConsequences.map((c) => ({
+    id: c.id,
+    name: c.category,
+    weight: weights[c.id] || 0,
+  }));
+
+  // Handler for applying all consequence values from AI research
+  const handleApplyConsequenceValues = (hazardId: string, values: Record<string, number>) => {
+    Object.entries(values).forEach(([consequenceId, value]) => {
+      onImpactChange(hazardId, consequenceId, value);
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -135,6 +150,9 @@ export function ImpactsStep({
                     hazardCategory={hazard.category}
                     researchType="consequence"
                     assessmentId={assessmentId}
+                    consequences={consequencesForAI}
+                    onApplyConsequenceValues={(values) => handleApplyConsequenceValues(hazard.id, values)}
+                    currentConsequenceValues={impacts[hazard.id] || {}}
                   />
                 </div>
               </CardContent>

@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface ConsequenceInfo {
+  id: string;
+  name: string;
+  weight: number;
+}
+
 interface ResearchRequest {
   hazard_name: string;
   hazard_category: string;
@@ -17,6 +23,7 @@ interface ResearchRequest {
     key_facilities?: string[];
     size?: string;
   };
+  consequences?: ConsequenceInfo[]; // For consequence research
   assessment_id?: string;
   hazard_id?: string;
 }
@@ -28,10 +35,18 @@ interface AISource {
   relevance: "high" | "medium" | "low";
 }
 
+interface ConsequenceImpact {
+  consequence_id: string;
+  consequence_name: string;
+  suggested_value: number;
+  rationale: string;
+}
+
 interface AIResearchResult {
   success: boolean;
   data?: {
-    suggested_value?: number;
+    suggested_value?: number; // For probability
+    consequence_impacts?: ConsequenceImpact[]; // For consequence research
     explanation: string;
     sources: AISource[];
     confidence_level: number;
@@ -78,11 +93,19 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     const body: ResearchRequest = await req.json();
-    const { hazard_name, hazard_category, research_type, org_context, assessment_id, hazard_id } = body;
+    const { hazard_name, hazard_category, research_type, org_context, consequences, assessment_id, hazard_id } = body;
 
     if (!hazard_name || !research_type || !org_context) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // For consequence research, require consequences array
+    if (research_type === "consequence" && (!consequences || consequences.length === 0)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Consequences array required for impact research" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -180,6 +203,9 @@ ORGANIZATION CONTEXT:
 
 You must respond using the research_result tool to provide structured output.`;
 
+    // Build consequence list for the prompt if this is consequence research
+    const consequencesList = consequences?.map(c => `- ${c.name} (weight: ${c.weight}%)`).join("\n") || "";
+
     const userPrompt = research_type === "probability"
       ? `Research the probability/likelihood of "${hazard_name}" (category: ${hazard_category}) occurring in ${org_context.primary_location || org_context.region} for a ${org_context.sector} organization.
 
@@ -192,12 +218,21 @@ Find:
 Be conservative - if data is limited, suggest lower confidence and note data limitations.`
       : `Research the potential consequences/impacts of "${hazard_name}" (category: ${hazard_category}) on a ${org_context.sector} organization in ${org_context.primary_location || org_context.region}.
 
-Find:
-1. Historical impact data from similar incidents
-2. Industry-specific consequence patterns
-3. Financial, operational, reputational, and safety impacts
-4. Suggested impact severity (0-3 scale where 0=None, 1=Minor, 2=Moderate, 3=Severe)
+IMPORTANT: You must provide a SEPARATE impact score (0-3) for EACH of the following consequence types:
+${consequencesList}
 
+Impact Scale:
+- 0 = None/Not Applicable
+- 1 = Minor impact
+- 2 = Moderate impact  
+- 3 = Severe impact
+
+For EACH consequence type, research and provide:
+1. Historical impact data from similar incidents
+2. Industry-specific consequence patterns for this type
+3. A suggested impact score with brief rationale
+
+If you cannot find reliable data for a specific consequence type, set its score to null and explain why.
 Focus on impacts relevant to ${org_context.sector} sector operations.`;
 
     console.log("Calling Lovable AI for research:", { hazard_name, research_type, org: org_context.name });
@@ -225,11 +260,25 @@ Focus on impacts relevant to ${org_context.sector} sector operations.`;
                 properties: {
                   suggested_value: {
                     type: "number",
-                    description: "Suggested score (1-6 for probability, 0-3 for impact). Omit if no data found.",
+                    description: "For probability research: Suggested score (1-6). Omit if no data found. NOT used for consequence research.",
+                  },
+                  consequence_impacts: {
+                    type: "array",
+                    description: "For consequence research: Array of impact scores for each consequence type. Required for consequence research.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        consequence_id: { type: "string", description: "The ID of the consequence" },
+                        consequence_name: { type: "string", description: "Name of the consequence type" },
+                        suggested_value: { type: "number", description: "Suggested impact score (0-3). Use null if no reliable data." },
+                        rationale: { type: "string", description: "Brief explanation for this specific impact score" },
+                      },
+                      required: ["consequence_id", "consequence_name", "suggested_value", "rationale"],
+                    },
                   },
                   explanation: {
                     type: "string",
-                    description: "Detailed explanation of findings, methodology, and any caveats. Be honest about data limitations.",
+                    description: "Overall explanation of findings, methodology, and any caveats. Be honest about data limitations.",
                   },
                   sources: {
                     type: "array",
@@ -338,6 +387,7 @@ Focus on impacts relevant to ${org_context.sector} sector operations.`;
         query_params: { hazard_name, hazard_category, org_context },
         result_data: {
           suggested_value: result.suggested_value,
+          consequence_impacts: result.consequence_impacts,
           explanation: result.explanation,
           data_quality: result.data_quality,
           conflicting_data: result.conflicting_data,

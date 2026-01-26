@@ -10,8 +10,22 @@ export interface AISource {
   relevance: "high" | "medium" | "low";
 }
 
+export interface ConsequenceImpact {
+  consequence_id: string;
+  consequence_name: string;
+  suggested_value: number | null;
+  rationale: string;
+}
+
+export interface ConsequenceInfo {
+  id: string;
+  name: string;
+  weight: number;
+}
+
 export interface AIResearchData {
   suggested_value?: number;
+  consequence_impacts?: ConsequenceImpact[];
   explanation: string;
   sources: AISource[];
   confidence_level: number;
@@ -33,6 +47,7 @@ interface ResearchParams {
   hazardName: string;
   hazardCategory: string;
   researchType: "probability" | "consequence";
+  consequences?: ConsequenceInfo[];
   assessmentId?: string;
   hazardId?: string;
 }
@@ -47,6 +62,7 @@ export function useAIResearch() {
     hazardName,
     hazardCategory,
     researchType,
+    consequences,
     assessmentId,
     hazardId,
   }: ResearchParams): Promise<AIResearchResult | null> => {
@@ -74,6 +90,7 @@ export function useAIResearch() {
           hazard_name: hazardName,
           hazard_category: hazardCategory,
           research_type: researchType,
+          consequences: consequences,
           org_context: {
             name: organization.name,
             sector: organization.sector,
