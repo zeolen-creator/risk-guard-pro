@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Loader2, AlertTriangle, CheckCircle2, Info, ExternalLink, X } from "lucide-react";
-import { AIResearchData, useAIResearch } from "@/hooks/useAIResearch";
+import { AIResearchData, ConsequenceInfo, useAIResearch } from "@/hooks/useAIResearch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,19 +14,25 @@ interface AIResearchPanelProps {
   hazardCategory: string;
   researchType: "probability" | "consequence";
   assessmentId?: string;
+  consequences?: ConsequenceInfo[];
   onApplyValue?: (value: number) => void;
+  onApplyConsequenceValues?: (values: Record<string, number>) => void;
   currentValue?: number;
+  currentConsequenceValues?: Record<string, number>;
 }
 
-export function AIResearchPanel({
+export const AIResearchPanel = forwardRef<HTMLDivElement, AIResearchPanelProps>(function AIResearchPanel({
   hazardId,
   hazardName,
   hazardCategory,
   researchType,
   assessmentId,
+  consequences,
   onApplyValue,
+  onApplyConsequenceValues,
   currentValue,
-}: AIResearchPanelProps) {
+  currentConsequenceValues,
+}, ref) {
   const { research, isLoading, getCachedResult, hasOrganizationContext } = useAIResearch();
   const [showPanel, setShowPanel] = useState(false);
   const [result, setResult] = useState<AIResearchData | null>(null);
@@ -47,6 +53,7 @@ export function AIResearchPanel({
       hazardName,
       hazardCategory,
       researchType,
+      consequences,
       assessmentId,
       hazardId,
     });
@@ -56,6 +63,27 @@ export function AIResearchPanel({
     } else {
       setError(response?.error || "Research failed");
     }
+  };
+
+  const handleApplyAllConsequenceValues = () => {
+    if (!result?.consequence_impacts || !onApplyConsequenceValues) return;
+    
+    const values: Record<string, number> = {};
+    result.consequence_impacts.forEach((impact) => {
+      if (impact.suggested_value !== null) {
+        values[impact.consequence_id] = impact.suggested_value;
+      }
+    });
+    onApplyConsequenceValues(values);
+  };
+
+  const hasAppliedAllConsequenceValues = () => {
+    if (!result?.consequence_impacts || !currentConsequenceValues) return false;
+    return result.consequence_impacts.every(
+      (impact) =>
+        impact.suggested_value === null ||
+        currentConsequenceValues[impact.consequence_id] === impact.suggested_value
+    );
   };
 
   const getConfidenceColor = (level: number) => {
@@ -96,7 +124,7 @@ export function AIResearchPanel({
   }
 
   return (
-    <div className="w-full">
+    <div ref={ref} className="w-full">
       {!showPanel ? (
         <Button
           variant="outline"
@@ -209,13 +237,13 @@ export function AIResearchPanel({
                   </div>
                 )}
 
-                {/* Suggested Value */}
-                {result.suggested_value !== undefined && result.data_quality !== "none" && (
+                {/* Suggested Value - For Probability Research */}
+                {researchType === "probability" && result.suggested_value !== undefined && result.data_quality !== "none" && (
                   <div className="bg-primary/10 rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Suggested {researchType === "probability" ? "Probability" : "Impact"}
+                          Suggested Probability
                         </p>
                         <p className="text-lg font-bold">{result.suggested_value}</p>
                       </div>
@@ -238,6 +266,77 @@ export function AIResearchPanel({
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       ⚠️ Review carefully before applying
+                    </p>
+                  </div>
+                )}
+
+                {/* Consequence Impacts - For Impact Research */}
+                {researchType === "consequence" && result.consequence_impacts && result.consequence_impacts.length > 0 && result.data_quality !== "none" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Suggested Impact Scores
+                      </p>
+                      {onApplyConsequenceValues && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleApplyAllConsequenceValues}
+                          disabled={hasAppliedAllConsequenceValues()}
+                        >
+                          {hasAppliedAllConsequenceValues() ? (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              All Applied
+                            </>
+                          ) : (
+                            "Apply All Values"
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    <ScrollArea className="h-48">
+                      <div className="space-y-2 pr-2">
+                        {result.consequence_impacts.map((impact) => (
+                          <div
+                            key={impact.consequence_id}
+                            className="bg-primary/10 rounded-md p-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">
+                                  {impact.consequence_name}
+                                </p>
+                                {impact.suggested_value !== null ? (
+                                  <p className="text-lg font-bold">{impact.suggested_value}</p>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground italic">No data</p>
+                                )}
+                              </div>
+                              {currentConsequenceValues && impact.suggested_value !== null && (
+                                <Badge
+                                  variant={
+                                    currentConsequenceValues[impact.consequence_id] === impact.suggested_value
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  className="shrink-0 text-xs"
+                                >
+                                  {currentConsequenceValues[impact.consequence_id] === impact.suggested_value
+                                    ? "Applied"
+                                    : "Pending"}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {impact.rationale}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <p className="text-xs text-muted-foreground">
+                      ⚠️ Review each score carefully before applying
                     </p>
                   </div>
                 )}
@@ -326,4 +425,4 @@ export function AIResearchPanel({
       )}
     </div>
   );
-}
+});
