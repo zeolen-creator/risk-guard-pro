@@ -379,61 +379,78 @@ function runCompoundSimulation(templates: TemplateConfig[], iterations: number):
   
   const multiScenarioRate = multiScenarioYears / iterations;
   
-  // Calculate threshold probabilities using DYNAMIC thresholds based on actual data
-  // This provides more meaningful probability breakdowns
+  // Calculate threshold probabilities using PERCENTILE-BASED thresholds
+  // This GUARANTEES different bar heights by selecting thresholds at specific percentiles of the distribution
   const nonZeroLosses = losses.filter(l => l > 0);
   const zeroLossCount = losses.length - nonZeroLosses.length;
+  const zeroLossPct = (zeroLossCount / iterations) * 100;
   
   // Log diagnostic info for debugging
-  console.log(`Data verification: ${zeroLossCount} zero-loss years (${(zeroLossCount/iterations*100).toFixed(1)}%), ${iterations - zeroLossCount} non-zero years`);
+  console.log(`Data verification: ${zeroLossCount} zero-loss years (${zeroLossPct.toFixed(1)}%), ${nonZeroLosses.length} non-zero years`);
   
-  // Use data-driven thresholds: percentiles of the non-zero distribution
-  // This ensures meaningful differentiation in the probability chart
-  let thresholds: number[];
+  // Use PERCENTILE-based thresholds from the NON-ZERO losses
+  // This ensures each threshold has a meaningfully different probability
+  let thresholds: number[] = [];
+  const probability_exceeds_threshold: Record<string, number> = {};
   
   if (nonZeroLosses.length > 0) {
     nonZeroLosses.sort((a, b) => a - b);
-    const minNonZero = nonZeroLosses[0];
-    const maxNonZero = nonZeroLosses[nonZeroLosses.length - 1];
+    const n = nonZeroLosses.length;
     
-    // Create thresholds at meaningful points in the distribution
-    // Use logarithmic spacing between min and max
-    const logMin = Math.log10(Math.max(1000, minNonZero));
-    const logMax = Math.log10(maxNonZero);
-    
-    // Generate 5 thresholds spread across the range
-    thresholds = [
-      Math.round(Math.pow(10, logMin) / 1000) * 1000, // Near minimum (rounded to nearest 1000)
-      Math.round(Math.pow(10, logMin + (logMax - logMin) * 0.25) / 10000) * 10000,
-      Math.round(Math.pow(10, logMin + (logMax - logMin) * 0.5) / 10000) * 10000,
-      Math.round(Math.pow(10, logMin + (logMax - logMin) * 0.75) / 100000) * 100000,
-      Math.round(Math.pow(10, logMax * 0.95) / 100000) * 100000, // Near 95th percentile
+    // Select thresholds at specific percentiles of the NON-ZERO distribution
+    // These percentiles guarantee visually distinct probabilities
+    const percentileTargets = [
+      { pct: 10, label: '10th' },   // 90% of events exceed this
+      { pct: 25, label: '25th' },   // 75% of events exceed this
+      { pct: 50, label: '50th' },   // 50% of events exceed this (median)
+      { pct: 75, label: '75th' },   // 25% of events exceed this
+      { pct: 90, label: '90th' },   // 10% of events exceed this
+      { pct: 95, label: '95th' },   // 5% of events exceed this
     ];
     
-    // Ensure thresholds are unique and sorted
-    thresholds = [...new Set(thresholds)].sort((a, b) => a - b);
+    const nonZeroRate = nonZeroLosses.length / iterations;
     
-    // Ensure at least some standard thresholds are included if they're in range
-    const standardThresholds = [100000, 500000, 1000000, 5000000, 10000000];
-    for (const std of standardThresholds) {
-      if (std >= minNonZero * 0.5 && std <= maxNonZero * 1.5 && !thresholds.includes(std)) {
-        thresholds.push(std);
+    for (const target of percentileTargets) {
+      const idx = Math.min(Math.floor((target.pct / 100) * n), n - 1);
+      const rawValue = nonZeroLosses[idx];
+      
+      // Round to meaningful values for display
+      let roundedValue: number;
+      if (rawValue >= 10000000) {
+        roundedValue = Math.round(rawValue / 1000000) * 1000000; // Round to nearest $1M
+      } else if (rawValue >= 1000000) {
+        roundedValue = Math.round(rawValue / 100000) * 100000; // Round to nearest $100K
+      } else if (rawValue >= 100000) {
+        roundedValue = Math.round(rawValue / 10000) * 10000; // Round to nearest $10K
+      } else {
+        roundedValue = Math.round(rawValue / 1000) * 1000; // Round to nearest $1K
+      }
+      
+      // Only add if unique
+      if (!thresholds.includes(roundedValue)) {
+        thresholds.push(roundedValue);
+        
+        // Calculate probability: P(loss >= threshold) = P(non-zero) * P(non-zero loss >= threshold)
+        // For threshold at Pth percentile of non-zero: P(non-zero loss >= threshold) = (100 - P)%
+        const exceedCount = losses.filter(l => l >= roundedValue).length;
+        probability_exceeds_threshold[roundedValue.toString()] = exceedCount / iterations;
       }
     }
-    thresholds = [...new Set(thresholds)].sort((a, b) => a - b).slice(0, 6);
     
-    console.log(`Dynamic thresholds for data range $${minNonZero.toLocaleString()} - $${maxNonZero.toLocaleString()}: ${thresholds.map(t => '$' + t.toLocaleString()).join(', ')}`);
+    // Sort thresholds and limit to 6
+    thresholds = thresholds.sort((a, b) => a - b).slice(0, 6);
+    
+    console.log(`Percentile-based thresholds: ${thresholds.map(t => '$' + t.toLocaleString()).join(', ')}`);
+    console.log(`Expected probability pattern: Decreasing from ~${(nonZeroRate * 0.9 * 100).toFixed(0)}% down to ~${(nonZeroRate * 0.05 * 100).toFixed(0)}%`);
   } else {
+    // Fallback for edge case with no losses
     thresholds = [10000, 50000, 100000, 500000, 1000000];
+    for (const t of thresholds) {
+      probability_exceeds_threshold[t.toString()] = 0;
+    }
   }
   
-  const probability_exceeds_threshold: Record<string, number> = {};
-  for (const threshold of thresholds) {
-    const exceedCount = losses.filter((l) => l >= threshold).length;
-    probability_exceeds_threshold[threshold.toString()] = exceedCount / iterations;
-  }
-  
-  console.log(`Threshold probabilities: ${thresholds.map(t => `${(t/1000).toFixed(0)}K=${(probability_exceeds_threshold[t.toString()]*100).toFixed(1)}%`).join(', ')}`);
+  console.log(`Threshold probabilities: ${thresholds.map(t => `$${(t/1000).toFixed(0)}K=${(probability_exceeds_threshold[t.toString()]*100).toFixed(1)}%`).join(', ')}`);
   
   // Generate histogram
   const histogram = calculateHistogram(losses, iterations);
