@@ -28,7 +28,9 @@ import {
 } from "lucide-react";
 
 const profileSchema = z.object({
-  role_title: z.string().min(2, "Role title is required"),
+  first_name: z.string().min(1, "First name is required"),
+  last_name: z.string().optional(),
+  role_title: z.string().optional(),
   department: z.string().optional(),
   expertise: z.string().optional(),
 });
@@ -50,6 +52,8 @@ export default function ProfilePage() {
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     values: {
+      first_name: profile?.first_name || "",
+      last_name: profile?.last_name || "",
       role_title: profile?.role_title || "",
       department: profile?.department || "",
       expertise: profile?.expertise || "",
@@ -116,13 +120,35 @@ export default function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First Name</Label>
+                  <Input
+                    id="first_name"
+                    placeholder="Enter your first name"
+                    {...register("first_name")}
+                  />
+                  {errors.first_name && (
+                    <p className="text-sm text-destructive">{errors.first_name.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last Name</Label>
+                  <Input
+                    id="last_name"
+                    placeholder="Enter your last name"
+                    {...register("last_name")}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 pt-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Email:</span>
                 <span className="font-medium">{user?.email}</span>
               </div>
-            </div>
+              <p className="text-xs text-muted-foreground">Email cannot be changed after registration</p>
+            </form>
           </CardContent>
         </Card>
 
@@ -177,9 +203,6 @@ export default function ProfilePage() {
                   placeholder="e.g., Safety Manager"
                   {...register("role_title")}
                 />
-                {errors.role_title && (
-                  <p className="text-sm text-destructive">{errors.role_title.message}</p>
-                )}
               </div>
 
               <div className="space-y-2">

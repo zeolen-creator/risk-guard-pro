@@ -7,6 +7,8 @@ export interface Profile {
   user_id: string;
   org_id: string | null;
   email: string | null;
+  first_name: string | null;
+  last_name: string | null;
   role_title: string | null;
   department: string | null;
   expertise: string | null;

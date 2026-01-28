@@ -5,6 +5,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useAssessments } from "@/hooks/useAssessments";
 import { useDeleteAssessment } from "@/hooks/useDeleteAssessment";
+import { useBenchmarkStats } from "@/hooks/useBenchmarkStats";
+import { useTeamStats } from "@/hooks/useTeamStats";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +45,7 @@ import {
   Bell,
   Users,
   Flame,
+  BookOpen,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -57,6 +60,8 @@ export default function DashboardPage() {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: organization, isLoading: orgLoading } = useOrganization();
   const { data: assessments, isLoading: assessmentsLoading } = useAssessments();
+  const { data: benchmarkStats } = useBenchmarkStats();
+  const { data: teamStats } = useTeamStats();
   const deleteAssessment = useDeleteAssessment();
 
   const [greeting, setGreeting] = useState("");
@@ -177,7 +182,7 @@ export default function DashboardPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold mb-1">
-                {greeting}, {profile?.role_title || user?.email?.split("@")[0] || "there"}! 👋
+                {greeting}, {profile?.first_name || user?.email?.split("@")[0] || "there"}! 👋
               </h1>
               <p className="text-blue-100 flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
@@ -310,16 +315,34 @@ export default function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-purple-600">68%</div>
-                    <p className="text-sm text-muted-foreground">Percentile</p>
+                {benchmarkStats ? (
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-purple-600">
+                        {Math.round(((benchmarkStats.percentile_75 || 50) / 100) * 100)}%
+                      </div>
+                      <p className="text-sm text-muted-foreground">Percentile</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm mb-2">
+                        {avgRiskScore < (benchmarkStats.avg_risk_score || 50) 
+                          ? "Better than average! 🎉" 
+                          : "Room for improvement"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Based on {benchmarkStats.sample_size} peer organizations in {organization?.sector}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm mb-2">Better than 68% of peers! 🎉</p>
-                    <p className="text-xs text-muted-foreground">Compared to similar organizations in your region</p>
+                ) : (
+                  <div className="text-center py-4">
+                    <BarChart3 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground mb-1">Insufficient Data</p>
+                    <p className="text-xs text-muted-foreground">
+                      Peer benchmarking requires at least 5 organizations in your industry and region
+                    </p>
                   </div>
-                </div>
+                )}
                 <Button variant="outline" size="sm" className="mt-4 w-full" asChild>
                   <Link to="/analytics">
                     <BarChart3 className="h-4 w-4 mr-2" />
@@ -416,6 +439,12 @@ export default function DashboardPage() {
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link to="/hazards">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    View Hazard Library
+                  </Link>
+                </Button>
+                <Button variant="outline" className="w-full justify-start" asChild>
                   <Link to="/settings/weights">
                     <Scale className="h-4 w-4 mr-2" />
                     View Consequence Weights
@@ -454,11 +483,15 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Active Users</p>
-                    <p className="text-2xl font-bold">5</p>
+                    <p className="text-2xl font-bold">{teamStats?.activeUsers || 1}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Last Activity</p>
-                    <p className="text-2xl font-bold">2h ago</p>
+                    <p className="text-2xl font-bold">
+                      {teamStats?.lastActivity 
+                        ? formatDistanceToNow(teamStats.lastActivity, { addSuffix: false })
+                        : "—"}
+                    </p>
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground mb-2">
@@ -476,22 +509,33 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">Fire Safety Assessment</p>
-                    <p className="text-xs text-muted-foreground">Due in 3 days</p>
+                {assessments && assessments.filter(a => a.status === "completed").length > 0 ? (
+                  <>
+                    {assessments
+                      .filter(a => a.status === "completed")
+                      .slice(0, 2)
+                      .map((assessment) => (
+                        <div key={assessment.id} className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{assessment.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Review recommended
+                            </p>
+                          </div>
+                          <Clock className="h-4 w-4 text-orange-500" />
+                        </div>
+                      ))}
+                    <Button variant="ghost" size="sm" className="w-full" asChild>
+                      <Link to="/assessments/history">View All Assessments →</Link>
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">No upcoming reviews</p>
+                    <p className="text-xs text-muted-foreground">Complete assessments to see review schedule</p>
                   </div>
-                  <AlertTriangle className="h-4 w-4 text-orange-500" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">Workplace Violence Prevention</p>
-                    <p className="text-xs text-muted-foreground">Due in 2 weeks</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm" className="w-full" asChild>
-                  <Link to="/assessments/history">View Full Schedule →</Link>
-                </Button>
+                )}
               </CardContent>
             </Card>
 
