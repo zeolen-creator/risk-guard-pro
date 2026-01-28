@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import { RiskAlertsWidget } from "@/components/features/alerts/RiskAlertsWidget";
 import { BlindSpotAlert } from "@/components/features/benchmarking/BlindSpotAlert";
 import { RiskPredictionPanel } from "@/components/features/predictions/RiskPredictionPanel";
+import { RegionalRiskWidget } from "@/components/features/news/RegionalRiskWidget";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -283,6 +284,11 @@ export default function DashboardPage() {
         {/* Blind Spot Alert */}
         <div className="mb-6">
           <BlindSpotAlert />
+        </div>
+
+        {/* Regional Risk Intelligence */}
+        <div className="mb-6">
+          <RegionalRiskWidget />
         </div>
 
         {/* Main Grid */}
