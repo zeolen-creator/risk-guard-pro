@@ -6,18 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface SimulationParams {
-  hazard_id?: string;
-  assessment_id?: string;
-  template_id?: string;
-  iterations?: number;
-  time_horizon_years?: number;
-  frequency_distribution: DistributionParams;
-  direct_cost_distribution: DistributionParams;
-  indirect_cost_distribution: DistributionParams;
-  downtime_distribution?: DistributionParams;
-}
-
 interface DistributionParams {
   type: "normal" | "lognormal" | "triangular" | "uniform" | "poisson";
   min?: number;
@@ -28,11 +16,44 @@ interface DistributionParams {
   lambda?: number;
 }
 
+interface TemplateConfig {
+  id: string;
+  name: string;
+  parameters: {
+    frequency_distribution: DistributionParams;
+    direct_cost_distribution: DistributionParams;
+    indirect_cost_distribution: DistributionParams;
+  };
+}
+
+interface SimulationParams {
+  hazard_id?: string;
+  assessment_id?: string;
+  template_id?: string;
+  template_ids?: string[];
+  templates?: TemplateConfig[];
+  iterations?: number;
+  time_horizon_years?: number;
+  combination_method?: "single" | "compound" | "additive" | "weighted";
+  frequency_distribution?: DistributionParams;
+  direct_cost_distribution?: DistributionParams;
+  indirect_cost_distribution?: DistributionParams;
+  downtime_distribution?: DistributionParams;
+}
+
 interface HistogramBin {
   range_start: number;
   range_end: number;
   count: number;
   probability: number;
+}
+
+interface ScenarioStats {
+  template_name: string;
+  eal: number;
+  var_95: number;
+  occurrence_rate: number;
+  contribution_pct: number;
 }
 
 // Box-Muller transform for normal distribution
@@ -67,6 +88,7 @@ function randomUniform(min: number, max: number): number {
 
 // Poisson distribution
 function randomPoisson(lambda: number): number {
+  if (lambda === 0) return 0;
   const L = Math.exp(-lambda);
   let k = 0;
   let p = 1;
@@ -98,7 +120,54 @@ function sampleDistribution(params: DistributionParams): number {
   }
 }
 
-function runSimulation(params: SimulationParams): {
+function calculateHistogram(losses: number[], iterations: number): HistogramBin[] {
+  const minLoss = Math.max(0, losses[0]);
+  const maxLoss = losses[losses.length - 1];
+  
+  // Create 10 bins using percentile-based edges
+  const binCount = 10;
+  const binEdges: number[] = [];
+  
+  for (let i = 0; i <= binCount; i++) {
+    const percentile = i / binCount;
+    const index = Math.floor(percentile * (iterations - 1));
+    binEdges.push(losses[index]);
+  }
+  
+  const uniqueBinEdges = [...new Set(binEdges)].sort((a, b) => a - b);
+  const histogram: HistogramBin[] = [];
+  
+  for (let i = 0; i < uniqueBinEdges.length - 1; i++) {
+    const rangeStart = uniqueBinEdges[i];
+    const rangeEnd = uniqueBinEdges[i + 1];
+    const count = losses.filter(l => l >= rangeStart && l < rangeEnd).length;
+    const probability = count / iterations;
+    
+    histogram.push({
+      range_start: Math.round(rangeStart),
+      range_end: Math.round(rangeEnd),
+      count: count,
+      probability: probability,
+    });
+  }
+  
+  // Handle last bin edge case
+  const lastBinStart = uniqueBinEdges[uniqueBinEdges.length - 1];
+  const lastBinCount = losses.filter(l => l >= lastBinStart).length;
+  if (lastBinCount > 0 && (histogram.length === 0 || histogram[histogram.length - 1].range_start !== lastBinStart)) {
+    histogram.push({
+      range_start: Math.round(lastBinStart),
+      range_end: Math.round(maxLoss),
+      count: lastBinCount,
+      probability: lastBinCount / iterations,
+    });
+  }
+  
+  return histogram;
+}
+
+// Run SINGLE template simulation (backward compatible)
+function runSingleSimulation(params: SimulationParams): {
   results: number[];
   eal_amount: number;
   percentile_10: number;
@@ -118,108 +187,40 @@ function runSimulation(params: SimulationParams): {
   const timeHorizon = params.time_horizon_years || 1;
   const losses: number[] = [];
 
-  // Run simulations
   for (let i = 0; i < iterations; i++) {
-    const frequency = sampleDistribution(params.frequency_distribution);
+    const frequency = sampleDistribution(params.frequency_distribution!);
     const eventsThisYear = Math.round(frequency * timeHorizon);
 
     let totalLoss = 0;
     for (let j = 0; j < eventsThisYear; j++) {
-      const directCost = sampleDistribution(params.direct_cost_distribution);
-      const indirectCost = sampleDistribution(params.indirect_cost_distribution);
+      const directCost = sampleDistribution(params.direct_cost_distribution!);
+      const indirectCost = sampleDistribution(params.indirect_cost_distribution!);
       totalLoss += directCost + indirectCost;
     }
 
     losses.push(totalLoss);
   }
 
-  // Sort losses ascending for percentile calculations
   losses.sort((a, b) => a - b);
 
-  // Calculate key statistics
   const eal = losses.reduce((sum, l) => sum + l, 0) / iterations;
   const p10 = losses[Math.floor(iterations * 0.10)];
   const p50 = losses[Math.floor(iterations * 0.50)];
   const p90 = losses[Math.floor(iterations * 0.90)];
   const var95 = losses[Math.floor(iterations * 0.95)];
 
-  // ============================================
-  // CORRECTED HISTOGRAM CALCULATION
-  // Using percentile-based bins for proper distribution
-  // ============================================
-
-  const minLoss = Math.max(0, losses[0]);
-  const maxLoss = losses[losses.length - 1];
-
-  // Create 10 bins using percentile-based edges (not equal-width)
-  const binCount = 10;
-  const binEdges: number[] = [];
-
-  for (let i = 0; i <= binCount; i++) {
-    const percentile = i / binCount;
-    const index = Math.floor(percentile * (iterations - 1));
-    binEdges.push(losses[index]);
-  }
-
-  // Remove duplicate edges and sort
-  const uniqueBinEdges = [...new Set(binEdges)].sort((a, b) => a - b);
-
-  // Count observations in each bin
-  const histogram: HistogramBin[] = [];
-  for (let i = 0; i < uniqueBinEdges.length - 1; i++) {
-    const rangeStart = uniqueBinEdges[i];
-    const rangeEnd = uniqueBinEdges[i + 1];
-
-    // Count losses in this bin
-    const count = losses.filter(l => l >= rangeStart && l < rangeEnd).length;
-
-    // CRITICAL: Calculate probability as fraction of total iterations
-    const probability = count / iterations;
-
-    histogram.push({
-      range_start: Math.round(rangeStart),
-      range_end: Math.round(rangeEnd),
-      count: count,
-      probability: probability, // Decimal format: 0.35 = 35%
-    });
-  }
-
-  // Handle last bin edge case
-  const lastBinStart = uniqueBinEdges[uniqueBinEdges.length - 1];
-  const lastBinCount = losses.filter(l => l >= lastBinStart).length;
-  if (lastBinCount > 0 && (histogram.length === 0 || histogram[histogram.length - 1].range_start !== lastBinStart)) {
-    histogram.push({
-      range_start: Math.round(lastBinStart),
-      range_end: Math.round(maxLoss),
-      count: lastBinCount,
-      probability: lastBinCount / iterations,
-    });
-  }
-
-  // Verify total probability sums to ~1.0
+  const histogram = calculateHistogram(losses, iterations);
   const totalProbability = histogram.reduce((sum, bin) => sum + bin.probability, 0);
-  console.log(`Histogram check: Total probability = ${totalProbability.toFixed(4)}`);
 
-  if (Math.abs(totalProbability - 1.0) > 0.01) {
-    console.warn(`WARNING: Histogram probabilities sum to ${totalProbability}, not 1.0`);
-  }
-
-  console.log('Distribution bins:');
-  histogram.forEach((bin, idx) => {
-    console.log(`  ${idx}: $${bin.range_start.toLocaleString()}-$${bin.range_end.toLocaleString()} = ${(bin.probability * 100).toFixed(1)}% (${bin.count} occurrences)`);
-  });
-
-  // Calculate probability of exceeding thresholds
   const thresholds = [10000, 50000, 100000, 500000, 1000000];
   const probability_exceeds_threshold: Record<string, number> = {};
-
   for (const threshold of thresholds) {
     const exceedCount = losses.filter((l) => l >= threshold).length;
     probability_exceeds_threshold[threshold.toString()] = exceedCount / iterations;
   }
 
   return {
-    results: losses.slice(0, 1000), // Store sample of results
+    results: losses.slice(0, 1000),
     eal_amount: Math.round(eal * 100) / 100,
     percentile_10: Math.round(p10 * 100) / 100,
     percentile_50: Math.round(p50 * 100) / 100,
@@ -228,16 +229,165 @@ function runSimulation(params: SimulationParams): {
     probability_exceeds_threshold,
     distribution: histogram,
     data_quality: {
-      min_loss: Math.round(minLoss),
-      max_loss: Math.round(maxLoss),
+      min_loss: Math.round(losses[0]),
+      max_loss: Math.round(losses[losses.length - 1]),
       total_probability: Math.round(totalProbability * 1000) / 1000,
       bin_count: histogram.length,
     },
   };
 }
 
+// Run MULTI-TEMPLATE compound simulation
+function runCompoundSimulation(templates: TemplateConfig[], iterations: number): {
+  results: number[];
+  eal_amount: number;
+  percentile_10: number;
+  percentile_50: number;
+  percentile_90: number;
+  var_95: number;
+  probability_exceeds_threshold: Record<string, number>;
+  distribution: HistogramBin[];
+  scenario_stats: Record<string, ScenarioStats>;
+  dominant_scenario: ScenarioStats & { id: string };
+  multi_scenario_rate: number;
+  data_quality: {
+    min_loss: number;
+    max_loss: number;
+    total_probability: number;
+    bin_count: number;
+    combination_method: string;
+  };
+} {
+  console.log(`Starting compound Monte Carlo: ${templates.length} scenarios, ${iterations} iterations`);
+  
+  const losses: number[] = [];
+  const scenarioOccurrences: Record<string, number> = {};
+  const scenarioLosses: Record<string, number[]> = {};
+  
+  // Initialize tracking for each scenario
+  templates.forEach(t => {
+    scenarioOccurrences[t.id] = 0;
+    scenarioLosses[t.id] = [];
+  });
+  
+  let multiScenarioYears = 0;
+  
+  // Run simulations
+  for (let i = 0; i < iterations; i++) {
+    let totalYearLoss = 0;
+    let scenariosThisYear = 0;
+    
+    // For each template/scenario
+    for (const template of templates) {
+      const params = template.parameters;
+      
+      // Sample frequency (events per year for this scenario)
+      const frequency = sampleDistribution(params.frequency_distribution);
+      const numEvents = randomPoisson(frequency);
+      
+      if (numEvents > 0) {
+        scenarioOccurrences[template.id]++;
+        scenariosThisYear++;
+      }
+      
+      let scenarioYearLoss = 0;
+      
+      // For each event occurrence
+      for (let e = 0; e < numEvents; e++) {
+        const directCost = sampleDistribution(params.direct_cost_distribution);
+        const indirectCost = sampleDistribution(params.indirect_cost_distribution);
+        scenarioYearLoss += directCost + indirectCost;
+      }
+      
+      scenarioLosses[template.id].push(scenarioYearLoss);
+      totalYearLoss += scenarioYearLoss;
+    }
+    
+    if (scenariosThisYear > 1) {
+      multiScenarioYears++;
+    }
+    
+    losses.push(totalYearLoss);
+  }
+  
+  // Sort losses for percentile calculations
+  losses.sort((a, b) => a - b);
+  
+  // Calculate aggregate statistics
+  const eal = losses.reduce((sum, l) => sum + l, 0) / iterations;
+  const p10 = losses[Math.floor(iterations * 0.10)];
+  const p50 = losses[Math.floor(iterations * 0.50)];
+  const p90 = losses[Math.floor(iterations * 0.90)];
+  const var95 = losses[Math.floor(iterations * 0.95)];
+  
+  // Calculate per-scenario statistics
+  const scenarioStats: Record<string, ScenarioStats> = {};
+  
+  for (const template of templates) {
+    const scenarioLossArray = [...scenarioLosses[template.id]].sort((a, b) => a - b);
+    const scenarioEAL = scenarioLossArray.reduce((sum, l) => sum + l, 0) / iterations;
+    const scenarioVar95 = scenarioLossArray[Math.floor(iterations * 0.95)];
+    const occurrenceRate = scenarioOccurrences[template.id] / iterations;
+    
+    scenarioStats[template.id] = {
+      template_name: template.name,
+      eal: Math.round(scenarioEAL),
+      var_95: Math.round(scenarioVar95),
+      occurrence_rate: occurrenceRate,
+      contribution_pct: eal > 0 ? (scenarioEAL / eal) * 100 : 0,
+    };
+    
+    console.log(`Scenario "${template.name}": EAL=$${Math.round(scenarioEAL).toLocaleString()}, Occurs in ${(occurrenceRate * 100).toFixed(1)}% of years`);
+  }
+  
+  // Identify dominant scenario
+  const sortedScenarios = Object.entries(scenarioStats)
+    .sort((a, b) => b[1].contribution_pct - a[1].contribution_pct);
+  
+  const dominantScenario = {
+    id: sortedScenarios[0][0],
+    ...sortedScenarios[0][1],
+  };
+  
+  const multiScenarioRate = multiScenarioYears / iterations;
+  
+  // Generate histogram
+  const histogram = calculateHistogram(losses, iterations);
+  const totalProbability = histogram.reduce((sum, bin) => sum + bin.probability, 0);
+  
+  // Calculate threshold probabilities
+  const thresholds = [10000, 50000, 100000, 500000, 1000000];
+  const probability_exceeds_threshold: Record<string, number> = {};
+  for (const threshold of thresholds) {
+    const exceedCount = losses.filter((l) => l >= threshold).length;
+    probability_exceeds_threshold[threshold.toString()] = exceedCount / iterations;
+  }
+  
+  console.log(`Compound simulation completed: EAL=$${Math.round(eal).toLocaleString()}, Multi-scenario rate: ${(multiScenarioRate * 100).toFixed(1)}%`);
+  
+  return {
+    results: losses.slice(0, 1000),
+    eal_amount: Math.round(eal * 100) / 100,
+    percentile_10: Math.round(p10 * 100) / 100,
+    percentile_50: Math.round(p50 * 100) / 100,
+    percentile_90: Math.round(p90 * 100) / 100,
+    var_95: Math.round(var95 * 100) / 100,
+    probability_exceeds_threshold,
+    distribution: histogram,
+    scenario_stats: scenarioStats,
+    dominant_scenario: dominantScenario,
+    multi_scenario_rate: multiScenarioRate,
+    data_quality: {
+      min_loss: Math.round(losses[0]),
+      max_loss: Math.round(losses[losses.length - 1]),
+      total_probability: Math.round(totalProbability * 1000) / 1000,
+      bin_count: histogram.length,
+      combination_method: "compound",
+    },
+  };
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -258,7 +408,6 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
@@ -272,7 +421,6 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, simulation_id, ...params } = body;
 
-    // Get user's org_id
     const { data: profile } = await supabase
       .from("profiles")
       .select("org_id")
@@ -287,65 +435,108 @@ Deno.serve(async (req) => {
     }
 
     if (action === "run") {
-      console.log("Running Monte Carlo simulation with params:", params);
+      console.log("Running Monte Carlo simulation with params:", JSON.stringify(params, null, 2));
       const startTime = Date.now();
 
-      // If template_id provided, fetch template params
-      let simulationParams = params as SimulationParams;
-      if (params.template_id) {
-        const { data: template } = await supabase
-          .from("simulation_templates")
-          .select("*")
-          .eq("id", params.template_id)
-          .single();
+      const iterations = params.iterations || 100000;
+      const isMultiTemplate = params.templates && params.templates.length > 1;
 
-        if (template?.default_parameters) {
-          const defaultParams = template.default_parameters as Record<string, unknown>;
+      let results;
+      let templateIds: string[] = [];
+      let combinationMethod = "single";
+      let scenarioCount = 1;
+
+      if (isMultiTemplate) {
+        // Multi-template compound simulation
+        const templates: TemplateConfig[] = params.templates;
+        templateIds = templates.map(t => t.id);
+        combinationMethod = params.combination_method || "compound";
+        scenarioCount = templates.length;
+        
+        results = runCompoundSimulation(templates, iterations);
+      } else {
+        // Single template or manual parameters (backward compatible)
+        let simulationParams = params as SimulationParams;
+        
+        if (params.template_id) {
+          const { data: template } = await supabase
+            .from("simulation_templates")
+            .select("*")
+            .eq("id", params.template_id)
+            .single();
+
+          if (template?.default_parameters) {
+            const defaultParams = template.default_parameters as Record<string, unknown>;
+            simulationParams = {
+              ...defaultParams,
+              ...params,
+              frequency_distribution: params.frequency_distribution || defaultParams.frequency_distribution,
+              direct_cost_distribution: params.direct_cost_distribution || defaultParams.direct_cost_distribution,
+              indirect_cost_distribution: params.indirect_cost_distribution || defaultParams.indirect_cost_distribution,
+            } as SimulationParams;
+          }
+          templateIds = [params.template_id];
+        } else if (params.templates && params.templates.length === 1) {
+          // Single template via new interface
+          const template = params.templates[0];
           simulationParams = {
-            ...defaultParams,
-            ...params,
-            frequency_distribution: params.frequency_distribution || defaultParams.frequency_distribution,
-            direct_cost_distribution: params.direct_cost_distribution || defaultParams.direct_cost_distribution,
-            indirect_cost_distribution: params.indirect_cost_distribution || defaultParams.indirect_cost_distribution,
-          } as SimulationParams;
+            iterations,
+            frequency_distribution: template.parameters.frequency_distribution,
+            direct_cost_distribution: template.parameters.direct_cost_distribution,
+            indirect_cost_distribution: template.parameters.indirect_cost_distribution,
+          };
+          templateIds = [template.id];
         }
+
+        results = runSingleSimulation({
+          ...simulationParams,
+          iterations,
+        });
       }
 
-      // Run the simulation
-      const results = runSimulation(simulationParams);
       const executionTime = Date.now() - startTime;
 
-      // Store results with distribution and data quality
+      // Store results
+      const insertData: Record<string, unknown> = {
+        org_id: profile.org_id,
+        hazard_id: params.hazard_id || null,
+        assessment_id: params.assessment_id || null,
+        template_id: templateIds.length === 1 ? templateIds[0] : null,
+        template_ids: templateIds.length > 0 ? templateIds : null,
+        combination_method: combinationMethod,
+        scenario_count: scenarioCount,
+        iterations: iterations,
+        time_horizon_years: params.time_horizon_years || 1,
+        frequency_distribution: isMultiTemplate ? params.templates[0].parameters.frequency_distribution : params.frequency_distribution,
+        direct_cost_distribution: isMultiTemplate ? params.templates[0].parameters.direct_cost_distribution : params.direct_cost_distribution,
+        indirect_cost_distribution: isMultiTemplate ? params.templates[0].parameters.indirect_cost_distribution : params.indirect_cost_distribution,
+        downtime_distribution: params.downtime_distribution || null,
+        results: {
+          sample: results.results,
+          distribution: results.distribution,
+          data_quality: results.data_quality,
+          ...(isMultiTemplate && {
+            scenario_stats: (results as any).scenario_stats,
+            dominant_scenario: (results as any).dominant_scenario,
+            multi_scenario_rate: (results as any).multi_scenario_rate,
+          }),
+        },
+        eal_amount: results.eal_amount,
+        percentile_10: results.percentile_10,
+        percentile_50: results.percentile_50,
+        percentile_90: results.percentile_90,
+        var_95: results.var_95,
+        probability_exceeds_threshold: results.probability_exceeds_threshold,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        execution_time_ms: executionTime,
+        created_by: userId,
+        data_source: templateIds.length > 0 ? "template" : "manual",
+      };
+
       const { data: simulation, error: insertError } = await supabase
         .from("monte_carlo_simulations")
-        .insert({
-          org_id: profile.org_id,
-          hazard_id: params.hazard_id || null,
-          assessment_id: params.assessment_id || null,
-          template_id: params.template_id || null,
-          iterations: params.iterations || 100000,
-          time_horizon_years: params.time_horizon_years || 1,
-          frequency_distribution: simulationParams.frequency_distribution,
-          direct_cost_distribution: simulationParams.direct_cost_distribution,
-          indirect_cost_distribution: simulationParams.indirect_cost_distribution,
-          downtime_distribution: simulationParams.downtime_distribution || null,
-          results: { 
-            sample: results.results,
-            distribution: results.distribution,
-            data_quality: results.data_quality,
-          },
-          eal_amount: results.eal_amount,
-          percentile_10: results.percentile_10,
-          percentile_50: results.percentile_50,
-          percentile_90: results.percentile_90,
-          var_95: results.var_95,
-          probability_exceeds_threshold: results.probability_exceeds_threshold,
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          execution_time_ms: executionTime,
-          created_by: userId,
-          data_source: params.template_id ? "template" : "manual",
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -363,6 +554,8 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: true,
           simulation_id: simulation.id,
+          is_multi_template: isMultiTemplate,
+          scenario_count: scenarioCount,
           results: {
             eal_amount: results.eal_amount,
             percentile_10: results.percentile_10,
@@ -372,6 +565,11 @@ Deno.serve(async (req) => {
             probability_exceeds_threshold: results.probability_exceeds_threshold,
             distribution: results.distribution,
             data_quality: results.data_quality,
+            ...(isMultiTemplate && {
+              scenario_stats: (results as any).scenario_stats,
+              dominant_scenario: (results as any).dominant_scenario,
+              multi_scenario_rate: (results as any).multi_scenario_rate,
+            }),
           },
           execution_time_ms: executionTime,
         }),

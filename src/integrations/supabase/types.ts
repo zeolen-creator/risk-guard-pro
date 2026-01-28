@@ -765,6 +765,7 @@ export type Database = {
           ai_confidence: string | null
           ai_sources: Json | null
           assessment_id: string | null
+          combination_method: string | null
           completed_at: string | null
           created_at: string | null
           created_by: string | null
@@ -785,9 +786,11 @@ export type Database = {
           percentile_90: number | null
           probability_exceeds_threshold: Json | null
           results: Json | null
+          scenario_count: number | null
           severity_distribution: Json | null
           status: string | null
           template_id: string | null
+          template_ids: string[] | null
           time_horizon_years: number | null
           var_95: number | null
         }
@@ -795,6 +798,7 @@ export type Database = {
           ai_confidence?: string | null
           ai_sources?: Json | null
           assessment_id?: string | null
+          combination_method?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -815,9 +819,11 @@ export type Database = {
           percentile_90?: number | null
           probability_exceeds_threshold?: Json | null
           results?: Json | null
+          scenario_count?: number | null
           severity_distribution?: Json | null
           status?: string | null
           template_id?: string | null
+          template_ids?: string[] | null
           time_horizon_years?: number | null
           var_95?: number | null
         }
@@ -825,6 +831,7 @@ export type Database = {
           ai_confidence?: string | null
           ai_sources?: Json | null
           assessment_id?: string | null
+          combination_method?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -845,9 +852,11 @@ export type Database = {
           percentile_90?: number | null
           probability_exceeds_threshold?: Json | null
           results?: Json | null
+          scenario_count?: number | null
           severity_distribution?: Json | null
           status?: string | null
           template_id?: string | null
+          template_ids?: string[] | null
           time_horizon_years?: number | null
           var_95?: number | null
         }
