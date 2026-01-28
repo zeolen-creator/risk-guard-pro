@@ -115,6 +115,56 @@ export function MultiToolAssessmentPanel({
   // Active tab for detailed view
   const [activeTab, setActiveTab] = useState<string>("overview");
 
+  // Initialize category defaults when no template is selected
+  useEffect(() => {
+    if (!selectedTemplate && templates !== undefined) {
+      const categoryDefaults: Record<string, { freq: DistributionParams; direct: DistributionParams; indirect: DistributionParams }> = {
+        'natural': {
+          freq: { type: 'triangular', min: 0.05, mode: 0.15, max: 0.4 },
+          direct: { type: 'triangular', min: 500000, mode: 2500000, max: 10000000 },
+          indirect: { type: 'triangular', min: 200000, mode: 1000000, max: 5000000 }
+        },
+        'cyber': {
+          freq: { type: 'triangular', min: 0.3, mode: 1.0, max: 3.0 },
+          direct: { type: 'triangular', min: 200000, mode: 1000000, max: 5000000 },
+          indirect: { type: 'triangular', min: 100000, mode: 500000, max: 2000000 }
+        },
+        'biological': {
+          freq: { type: 'triangular', min: 0.1, mode: 0.3, max: 0.8 },
+          direct: { type: 'triangular', min: 200000, mode: 1000000, max: 5000000 },
+          indirect: { type: 'triangular', min: 100000, mode: 500000, max: 2000000 }
+        },
+        'operational': {
+          freq: { type: 'triangular', min: 0.5, mode: 1.5, max: 4.0 },
+          direct: { type: 'triangular', min: 100000, mode: 500000, max: 2000000 },
+          indirect: { type: 'triangular', min: 50000, mode: 250000, max: 1000000 }
+        },
+        'financial': {
+          freq: { type: 'triangular', min: 0.1, mode: 0.3, max: 0.8 },
+          direct: { type: 'triangular', min: 200000, mode: 1500000, max: 8000000 },
+          indirect: { type: 'triangular', min: 100000, mode: 750000, max: 4000000 }
+        },
+        'default': {
+          freq: { type: 'triangular', min: 0.1, mode: 0.3, max: 0.8 },
+          direct: { type: 'triangular', min: 100000, mode: 500000, max: 2000000 },
+          indirect: { type: 'triangular', min: 50000, mode: 250000, max: 1000000 }
+        }
+      };
+
+      const catLower = hazardCategory.toLowerCase();
+      let defaults = categoryDefaults.default;
+      if (catLower.includes('natural')) defaults = categoryDefaults.natural;
+      else if (catLower.includes('cyber')) defaults = categoryDefaults.cyber;
+      else if (catLower.includes('biological') || catLower.includes('health')) defaults = categoryDefaults.biological;
+      else if (catLower.includes('operational') || catLower.includes('process')) defaults = categoryDefaults.operational;
+      else if (catLower.includes('financial') || catLower.includes('economic')) defaults = categoryDefaults.financial;
+
+      setFreqDist(defaults.freq);
+      setDirectCostDist(defaults.direct);
+      setIndirectCostDist(defaults.indirect);
+    }
+  }, [hazardCategory, templates, selectedTemplate]);
+
   // Load template parameters
   const loadTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
@@ -377,10 +427,23 @@ export function MultiToolAssessmentPanel({
     }));
   };
 
-  // Filter templates by hazard category
-  const relevantTemplates = templates?.filter(
-    t => t.hazard_category.toLowerCase().includes(hazardCategory.toLowerCase().split(" ")[0])
-  ) || [];
+  // Filter templates by hazard category - match on category name
+  const relevantTemplates = templates?.filter(t => {
+    const templateCat = t.hazard_category.toLowerCase();
+    const hazardCat = hazardCategory.toLowerCase();
+    
+    // Exact match or partial match on key terms
+    if (templateCat === hazardCat) return true;
+    
+    // Match by significant keywords
+    const hazardKeywords = hazardCat.split(/[\s,]+/).filter(w => w.length > 3);
+    const templateKeywords = templateCat.split(/[\s,]+/).filter(w => w.length > 3);
+    
+    return hazardKeywords.some(kw => templateKeywords.some(tk => 
+      tk.includes(kw) || kw.includes(tk)
+    ));
+  }) || [];
+  
 
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-background">
@@ -436,26 +499,63 @@ export function MultiToolAssessmentPanel({
                 {/* CONFIGURATION MODE */}
                 {mcMode === "config" && (
                   <div className="space-y-4">
+                    {/* AI-Generated Parameters Warning */}
+                    {!selectedTemplate && relevantTemplates.length === 0 && (
+                      <Alert className="border-warning bg-warning/10">
+                        <Brain className="h-4 w-4 text-warning" />
+                        <AlertDescription className="text-sm">
+                          <strong>AI-Generated Parameters</strong>
+                          <p className="text-xs mt-1 text-muted-foreground">
+                            No pre-configured template exists for <strong>{hazardName}</strong>. 
+                            Parameters below are AI-generated based on similar <strong>{hazardCategory}</strong> risks.
+                            Review and adjust based on your organization's specific context.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     {/* Template Selection */}
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
-                        Load Template
+                        Load Template for {hazardCategory}
                       </Label>
-                      <Select onValueChange={loadTemplate}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Start from scratch or select a template" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="scratch">Start from scratch</SelectItem>
-                          {templates?.map(t => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.template_name} - {t.hazard_name || t.hazard_category}
-                              {t.region && ` (${t.region})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {relevantTemplates.length > 0 ? (
+                        <Select onValueChange={loadTemplate}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a template or start from scratch" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="scratch">Start from scratch (manual parameters)</SelectItem>
+                            {relevantTemplates.map(t => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.template_name} {t.hazard_name && `- ${t.hazard_name}`}
+                                {t.region && ` (${t.region})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="p-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30">
+                          <p className="text-xs text-muted-foreground text-center">
+                            No pre-built templates for <strong>{hazardCategory}</strong>.
+                            <br />Using intelligent defaults based on similar risk categories.
+                          </p>
+                        </div>
+                      )}
+                      {selectedTemplate && (
+                        <Alert className="border-primary/30 bg-primary/5">
+                          <Info className="h-4 w-4 text-primary" />
+                          <AlertDescription className="text-xs">
+                            Using template: <strong>{selectedTemplate.template_name}</strong>
+                            {selectedTemplate.source_notes && (
+                              <span className="block mt-1 text-muted-foreground">
+                                Source: {selectedTemplate.source_notes}
+                              </span>
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </div>
 
                     {/* Iterations Selection */}
