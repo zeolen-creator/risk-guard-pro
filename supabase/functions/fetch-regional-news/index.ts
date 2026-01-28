@@ -23,19 +23,39 @@ const PROVINCE_WEATHER_RSS: Record<string, string> = {
   YT: "https://weather.gc.ca/rss/warning/yt-16_e.xml",
 };
 
-// National and regional news RSS feeds
-const NATIONAL_NEWS_FEEDS = [
-  // National feeds
-  { name: "CBC Top Stories", url: "https://www.cbc.ca/webfeed/rss/rss-topstories" },
-  { name: "CBC Canada", url: "https://www.cbc.ca/webfeed/rss/rss-canada" },
-  { name: "Global News Canada", url: "https://globalnews.ca/canada/feed/" },
-  { name: "Global News", url: "https://globalnews.ca/feed/" },
+// News RSS feeds organized by category for better coverage
+const NEWS_FEEDS = {
+  // National news
+  national: [
+    { name: "CBC Top Stories", url: "https://www.cbc.ca/webfeed/rss/rss-topstories", category: "general" },
+    { name: "CBC Canada", url: "https://www.cbc.ca/webfeed/rss/rss-canada", category: "general" },
+    { name: "Global News Canada", url: "https://globalnews.ca/canada/feed/", category: "general" },
+  ],
   // Toronto-specific
-  { name: "CBC Toronto", url: "https://www.cbc.ca/webfeed/rss/rss-canada-toronto" },
-  { name: "Global News Toronto", url: "https://globalnews.ca/toronto/feed/" },
-  // Weather-specific
-  { name: "CBC Weather", url: "https://www.cbc.ca/webfeed/rss/rss-weather" },
-];
+  toronto: [
+    { name: "CBC Toronto", url: "https://www.cbc.ca/webfeed/rss/rss-canada-toronto", category: "general" },
+    { name: "Global News Toronto", url: "https://globalnews.ca/toronto/feed/", category: "general" },
+  ],
+  // Business & Finance
+  business: [
+    { name: "CBC Business", url: "https://www.cbc.ca/webfeed/rss/rss-business", category: "financial" },
+    { name: "Global News Money", url: "https://globalnews.ca/money/feed/", category: "financial" },
+  ],
+  // Health
+  health: [
+    { name: "CBC Health", url: "https://www.cbc.ca/webfeed/rss/rss-health", category: "health" },
+    { name: "Global News Health", url: "https://globalnews.ca/health/feed/", category: "health" },
+  ],
+  // Technology & Cybersecurity
+  technology: [
+    { name: "CBC Technology", url: "https://www.cbc.ca/webfeed/rss/rss-technology", category: "security" },
+  ],
+  // Politics & Regulations
+  politics: [
+    { name: "CBC Politics", url: "https://www.cbc.ca/webfeed/rss/rss-politics", category: "general" },
+    { name: "Global News Politics", url: "https://globalnews.ca/politics/feed/", category: "general" },
+  ],
+};
 
 // Industry-specific keyword mapping
 const INDUSTRY_KEYWORDS: Record<string, string[]> = {
@@ -260,30 +280,38 @@ function getProvinceCode(primaryLocation: string | null): string | null {
   return null;
 }
 
-// Determine alert category from content
-function detectCategory(text: string): string {
+// Determine alert category from content - improved classification
+function detectCategory(text: string, feedCategory?: string): string {
   const lowerText = text.toLowerCase();
   
-  if (/weather|storm|flood|tornado|hurricane|blizzard|ice|snow|rain|wind|heat|cold|freeze/i.test(lowerText)) {
+  // Weather & Environment (check first - highest priority for matching)
+  if (/weather|storm|flood|tornado|hurricane|blizzard|ice\s|snow|rain|wind|heat wave|cold\s|freeze|freezing|earthquake|wildfire|climate|temperature/i.test(lowerText)) {
     return "weather";
   }
-  if (/cyber|ransomware|breach|hack|phishing|malware|security/i.test(lowerText)) {
-    return "cybersecurity";
+  
+  // Security (Cybersecurity + Physical Security)
+  if (/cyber|ransomware|breach|hack|phishing|malware|data leak|crime|theft|fraud|scam|terror|attack|security threat|armed|robbery/i.test(lowerText)) {
+    return "security";
   }
-  if (/outbreak|disease|covid|flu|virus|health|hospital|medical|patient/i.test(lowerText)) {
+  
+  // Health & Public Safety
+  if (/outbreak|disease|covid|flu|virus|health\s|hospital|medical|patient|vaccination|epidemic|pandemic|emergency room|healthcare|illness|infection/i.test(lowerText)) {
     return "health";
   }
-  if (/power|outage|electricity|gas|water|infrastructure|transit|road|bridge/i.test(lowerText)) {
+  
+  // Infrastructure & Transit
+  if (/power outage|electricity|gas leak|water main|infrastructure|transit|ttc|subway|train|highway|road closure|bridge|construction|delay|cancelled|suspended|airport|traffic|collision|crash|accident|derailment/i.test(lowerText)) {
     return "infrastructure";
   }
-  if (/market|stock|financial|bank|economy|inflation|recession/i.test(lowerText)) {
+  
+  // Business & Financial
+  if (/market|stock|financial|bank\s|economy|inflation|recession|layoff|job loss|employment|business|company|earnings|profit|invest|trade|tariff|interest rate/i.test(lowerText)) {
     return "financial";
   }
-  if (/regulation|law|compliance|legislation|policy|government/i.test(lowerText)) {
-    return "regulatory";
-  }
-  if (/crime|theft|violence|protest|unrest|terrorism/i.test(lowerText)) {
-    return "security";
+  
+  // If feed has a category hint, use that
+  if (feedCategory && feedCategory !== "general") {
+    return feedCategory;
   }
   
   return "general";
@@ -380,21 +408,42 @@ Deno.serve(async (req) => {
           console.log(`Found ${feedData.weather_alerts.length} weather alerts`);
         }
 
-        // 2. Fetch news from national feeds
+        // 2. Fetch news from all feed categories
         const allNewsItems: any[] = [];
         const enabledCategories = org.news_settings?.categories || {};
+        
+        // Flatten all feeds into a single array with their categories
+        const allFeeds = [
+          ...NEWS_FEEDS.national,
+          ...NEWS_FEEDS.toronto,
+          ...NEWS_FEEDS.business,
+          ...NEWS_FEEDS.health,
+          ...NEWS_FEEDS.technology,
+          ...NEWS_FEEDS.politics,
+        ];
 
-        for (const feed of NATIONAL_NEWS_FEEDS) {
+        for (const feed of allFeeds) {
           const newsItems = await fetchRSS(feed.url, feed.name);
+          // Attach feed category hint to items
+          newsItems.forEach(item => {
+            item.feedCategory = feed.category;
+          });
           allNewsItems.push(...newsItems);
         }
 
         console.log(`Fetched ${allNewsItems.length} total news items`);
 
-        // 3. Filter and rank by relevance
+        // 3. Filter, deduplicate, and rank by relevance
+        const seenUrls = new Set<string>();
         const relevantNews = allNewsItems
+          .filter((item) => {
+            // Deduplicate by URL
+            if (seenUrls.has(item.link)) return false;
+            seenUrls.add(item.link);
+            return true;
+          })
           .map((item) => {
-            const category = detectCategory(item.title + " " + item.description);
+            const category = detectCategory(item.title + " " + item.description, item.feedCategory);
             return {
               ...item,
               relevance_score: calculateRelevance(item, org),
@@ -403,7 +452,7 @@ Deno.serve(async (req) => {
             };
           })
           .filter((item) => {
-            // Keep items with minimal relevance (lowered threshold to catch more)
+            // Keep items with minimal relevance
             if (item.relevance_score < 10) return false;
             
             // Filter by enabled categories
@@ -412,7 +461,7 @@ Deno.serve(async (req) => {
             return true;
           })
           .sort((a, b) => b.relevance_score - a.relevance_score)
-          .slice(0, 25); // Top 25 most relevant
+          .slice(0, 30); // Top 30 most relevant
 
         feedData.news_items = relevantNews.map((item) => ({
           id: item.hash,
