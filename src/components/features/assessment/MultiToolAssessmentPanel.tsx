@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
@@ -38,6 +38,20 @@ interface DistributionParams {
   max: number;
 }
 
+interface HistogramBin {
+  range_start: number;
+  range_end: number;
+  count: number;
+  probability: number;
+}
+
+interface DataQuality {
+  min_loss: number;
+  max_loss: number;
+  total_probability: number;
+  bin_count: number;
+}
+
 interface MCResults {
   eal_amount: number;
   percentile_10: number;
@@ -45,6 +59,8 @@ interface MCResults {
   percentile_90: number;
   var_95: number;
   probability_exceeds_threshold: Record<string, number>;
+  distribution?: HistogramBin[];
+  data_quality?: DataQuality;
   execution_time_ms?: number;
   iterations?: number;
   data_source?: string;
@@ -415,16 +431,89 @@ export function MultiToolAssessmentPanel({
     }
   };
 
-  // Generate histogram data from thresholds
+  // Generate histogram data from new distribution data (percentile-based bins)
   const getHistogramData = () => {
-    if (!mcResults?.probability_exceeds_threshold) return [];
+    if (!mcResults?.distribution || mcResults.distribution.length === 0) {
+      // Fallback to threshold data if no distribution
+      if (!mcResults?.probability_exceeds_threshold) return [];
+      const thresholds = Object.entries(mcResults.probability_exceeds_threshold);
+      return thresholds.map(([label, probability]) => ({
+        range: `$${parseInt(label).toLocaleString()}+`,
+        probability: probability * 100,
+        fill: probability > 0.5 ? "hsl(var(--destructive))" : probability > 0.25 ? "hsl(var(--warning))" : "hsl(var(--primary))",
+      }));
+    }
     
-    const thresholds = Object.entries(mcResults.probability_exceeds_threshold);
-    return thresholds.map(([label, probability], index) => ({
-      range: label.replace("$", ""),
-      probability: probability,
-      fill: probability > 50 ? "hsl(var(--destructive))" : probability > 25 ? "hsl(var(--warning))" : "hsl(var(--primary))",
+    // Use distribution data from edge function
+    return mcResults.distribution.map((bin) => ({
+      range: `$${bin.range_start.toLocaleString()}`,
+      probability: bin.probability * 100, // Convert to percentage
+      fill: bin.probability > 0.15 ? "hsl(var(--primary))" : bin.probability > 0.08 ? "hsl(var(--primary)/0.8)" : "hsl(var(--primary)/0.6)",
     }));
+  };
+
+  // Get threshold data for secondary chart
+  const getThresholdData = () => {
+    if (!mcResults?.probability_exceeds_threshold) return [];
+    const thresholds = Object.entries(mcResults.probability_exceeds_threshold);
+    return thresholds.map(([threshold, probability]) => ({
+      threshold: `$${parseInt(threshold).toLocaleString()}`,
+      probability: probability * 100,
+      fill: probability > 0.25 ? "hsl(var(--destructive))" : probability > 0.10 ? "hsl(var(--warning))" : "hsl(var(--primary))",
+    }));
+  };
+
+  // Generate plain-language interpretation
+  const getInterpretation = () => {
+    if (!mcResults) return null;
+    
+    const eal = mcResults.eal_amount || 0;
+    const p10 = mcResults.percentile_10 || 0;
+    const p50 = mcResults.percentile_50 || 0;
+    const p90 = mcResults.percentile_90 || 0;
+    const var95 = mcResults.var_95 || 0;
+    
+    const probs = mcResults.probability_exceeds_threshold || {};
+    const prob1M = probs["1000000"] || 0;
+    const prob100k = probs["100000"] || 0;
+    const prob500k = probs["500000"] || 0;
+    
+    // Determine likelihood guidance based on probabilities
+    let likelihoodGuidance = "";
+    let suggestedScore = 3;
+    
+    if (prob1M > 0.25) {
+      likelihoodGuidance = "These results suggest a HIGH probability score (5-6 on your scale). Large losses occur frequently in the simulations, indicating this hazard poses a significant recurring threat.";
+      suggestedScore = 6;
+    } else if (prob1M > 0.10) {
+      likelihoodGuidance = "These results suggest a MODERATE-HIGH probability score (4-5 on your scale). While not every year sees major losses, they occur often enough to warrant serious attention.";
+      suggestedScore = 5;
+    } else if (prob500k > 0.20) {
+      likelihoodGuidance = "These results suggest a MODERATE probability score (3-4 on your scale). Significant losses happen occasionally but are not rare events.";
+      suggestedScore = 4;
+    } else if (prob100k > 0.20) {
+      likelihoodGuidance = "These results suggest a LOW-MODERATE probability score (2-3 on your scale). Losses are possible but occur infrequently in most simulated scenarios.";
+      suggestedScore = 3;
+    } else if (prob100k > 0.05) {
+      likelihoodGuidance = "These results suggest a LOW probability score (1-2 on your scale). Large losses are uncommon in the simulations, though they remain possible.";
+      suggestedScore = 2;
+    } else {
+      likelihoodGuidance = "These results suggest a VERY LOW probability score (1 on your scale). Significant losses are rare events in the simulations.";
+      suggestedScore = 1;
+    }
+    
+    return {
+      eal,
+      p10,
+      p50,
+      p90,
+      var95,
+      prob1M,
+      prob100k,
+      prob500k,
+      likelihoodGuidance,
+      suggestedScore,
+    };
   };
 
   // Filter templates by hazard category - match on category name
@@ -800,38 +889,90 @@ export function MultiToolAssessmentPanel({
                       </Card>
                     </div>
 
+                    {/* Loss Distribution Histogram */}
+                    {mcResults.distribution && mcResults.distribution.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            Loss Distribution (Percentile-Based Bins)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[220px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={getHistogramData()} margin={{ top: 10, right: 10, left: 20, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                <XAxis 
+                                  dataKey="range" 
+                                  tick={{ fontSize: 9 }}
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={60}
+                                  className="text-muted-foreground"
+                                />
+                                <YAxis 
+                                  tickFormatter={(v) => `${v.toFixed(0)}%`}
+                                  domain={[0, 'auto']}
+                                  tick={{ fontSize: 11 }}
+                                  label={{ value: 'Probability', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }}
+                                  className="text-muted-foreground"
+                                />
+                                <Tooltip 
+                                  formatter={(value: number) => [`${value.toFixed(1)}%`, "Probability"]}
+                                  labelFormatter={(label) => `Loss Range: ${label}+`}
+                                  contentStyle={{ 
+                                    backgroundColor: "hsl(var(--background))",
+                                    border: "1px solid hsl(var(--border))",
+                                    fontSize: 12
+                                  }}
+                                />
+                                <Bar dataKey="probability" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          {mcResults.data_quality && (
+                            <div className="flex justify-between text-xs text-muted-foreground mt-2 px-2">
+                              <span>Range: ${mcResults.data_quality.min_loss.toLocaleString()} - ${mcResults.data_quality.max_loss.toLocaleString()}</span>
+                              <span>Bins: {mcResults.data_quality.bin_count} | Integrity: {(mcResults.data_quality.total_probability * 100).toFixed(1)}%</span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+
                     {/* Probability Thresholds Chart */}
                     {mcResults.probability_exceeds_threshold && (
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4" />
+                            <Target className="h-4 w-4" />
                             Probability of Exceeding Thresholds
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="h-[200px]">
+                          <div className="h-[180px]">
                             <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={getHistogramData()}>
+                              <BarChart data={getThresholdData()}>
                                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                                 <XAxis 
-                                  dataKey="range" 
+                                  dataKey="threshold" 
                                   tick={{ fontSize: 10 }}
                                   className="text-muted-foreground"
                                 />
                                 <YAxis 
                                   tick={{ fontSize: 10 }} 
-                                  unit="%" 
+                                  tickFormatter={(v) => `${v.toFixed(0)}%`}
                                   className="text-muted-foreground"
                                 />
                                 <Tooltip 
-                                  formatter={(value: number) => [`${value}%`, "Probability"]}
+                                  formatter={(value: number) => [`${value.toFixed(1)}%`, "Probability"]}
                                   contentStyle={{ 
                                     backgroundColor: "hsl(var(--background))",
                                     border: "1px solid hsl(var(--border))"
                                   }}
                                 />
-                                <Bar dataKey="probability" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="probability" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} />
                               </BarChart>
                             </ResponsiveContainer>
                           </div>
@@ -839,22 +980,72 @@ export function MultiToolAssessmentPanel({
                       </Card>
                     )}
 
-                    {/* Simulation Info */}
-                    <Alert className="bg-success/10 border-success/30">
-                      <CheckCircle2 className="h-4 w-4 text-success" />
-                      <AlertDescription className="text-xs">
-                        <strong>Simulation complete:</strong> {mcResults.iterations?.toLocaleString()} iterations 
-                        in {((mcResults.execution_time_ms || 0) / 1000).toFixed(1)}s
-                        <br />
-                        <span className="text-muted-foreground">
-                          Method: Triangular distributions with Poisson frequency
-                        </span>
-                        <br />
-                        <span className="text-muted-foreground">
-                          Data source: {mcResults.data_source === "template" ? selectedTemplate?.template_name : "Custom parameters"}
-                        </span>
-                      </AlertDescription>
-                    </Alert>
+                    {/* Plain Language Interpretation Panel */}
+                    {(() => {
+                      const interpretation = getInterpretation();
+                      if (!interpretation) return null;
+                      
+                      return (
+                        <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 border-l-4">
+                          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          <AlertTitle className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                            What This Means for Your Risk Assessment
+                          </AlertTitle>
+                          <AlertDescription className="text-sm text-gray-800 dark:text-gray-200 space-y-3">
+                            <p>
+                              <strong>📊 Expected Annual Impact:</strong> Based on {mcResults.iterations?.toLocaleString() || "100,000"} simulated years for <em>{hazardName}</em>, your organization can expect an average annual loss of <strong>${Math.round(interpretation.eal).toLocaleString()}</strong>.
+                            </p>
+                            
+                            <p>
+                              <strong>📈 Typical Range:</strong> In most years (80% of scenarios), losses fall between <strong>${Math.round(interpretation.p10).toLocaleString()}</strong> (low end) and <strong>${Math.round(interpretation.p90).toLocaleString()}</strong> (high end), with a median of <strong>${Math.round(interpretation.p50).toLocaleString()}</strong>.
+                            </p>
+                            
+                            <p>
+                              <strong>⚠️ Worst-Case Planning:</strong> In the most severe 5% of scenarios, losses could reach or exceed <strong>${Math.round(interpretation.var95).toLocaleString()}</strong>.
+                              {interpretation.prob1M > 0 && (
+                                <span> There is a <strong>{(interpretation.prob1M * 100).toFixed(1)}%</strong> chance in any given year that losses exceed $1,000,000.</span>
+                              )}
+                            </p>
+                            
+                            <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-lg mt-3">
+                              <p className="font-semibold text-blue-800 dark:text-blue-200 mb-1">
+                                💡 Scoring Guidance for This Hazard:
+                              </p>
+                              <p className="text-blue-700 dark:text-blue-300">
+                                {interpretation.likelihoodGuidance}
+                              </p>
+                              <Badge className="mt-2 bg-blue-600 text-white">
+                                Suggested Score: {interpretation.suggestedScore}/6
+                              </Badge>
+                            </div>
+                            
+                            <p className="text-xs text-muted-foreground mt-3 italic">
+                              <strong>Important:</strong> These results depend on the input parameters you selected ({mcResults.data_source === "template" ? `from template: ${selectedTemplate?.template_name || "selected template"}` : "AI-generated or manual"}). If they don't align with your organization's historical experience or local conditions, click "Adjust Parameters" to refine the model before applying a final score.
+                            </p>
+                          </AlertDescription>
+                        </Alert>
+                      );
+                    })()}
+
+                    {/* Data Quality Verification */}
+                    {mcResults.data_quality && (
+                      <Alert className={mcResults.data_quality.total_probability >= 0.99 ? "bg-success/10 border-success/30" : "bg-warning/10 border-warning/30"}>
+                        <CheckCircle2 className={`h-4 w-4 ${mcResults.data_quality.total_probability >= 0.99 ? "text-success" : "text-warning"}`} />
+                        <AlertDescription className="text-xs">
+                          <strong>Data Quality Verification:</strong>
+                          <br />
+                          ✓ Simulation integrity: {(mcResults.data_quality.total_probability * 100).toFixed(1)}% (should be ~100%)
+                          <br />
+                          ✓ Loss range: ${mcResults.data_quality.min_loss.toLocaleString()} - ${mcResults.data_quality.max_loss.toLocaleString()}
+                          <br />
+                          ✓ Distribution bins: {mcResults.data_quality.bin_count} percentile-based bins
+                          <br />
+                          <span className="text-muted-foreground">
+                            Execution: {((mcResults.execution_time_ms || 0) / 1000).toFixed(1)}s | Source: {mcResults.data_source === "template" ? selectedTemplate?.template_name : "Custom parameters"}
+                          </span>
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
                     {/* Action Buttons */}
                     <div className="flex gap-2">
@@ -868,13 +1059,13 @@ export function MultiToolAssessmentPanel({
                       </Button>
                       <Button
                         onClick={() => onRecommendation({ 
-                          likelihood: mapEalToLikelihood(mcResults.eal_amount), 
+                          likelihood: getInterpretation()?.suggestedScore || mapEalToLikelihood(mcResults.eal_amount), 
                           source: "Monte Carlo Simulation" 
                         })}
                         className="flex-1"
                       >
                         <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Apply Score ({mapEalToLikelihood(mcResults.eal_amount)}/6)
+                        Apply Score ({getInterpretation()?.suggestedScore || mapEalToLikelihood(mcResults.eal_amount)}/6)
                       </Button>
                     </div>
                   </div>
