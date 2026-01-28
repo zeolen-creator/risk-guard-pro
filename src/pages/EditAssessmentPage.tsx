@@ -260,6 +260,7 @@ export default function EditAssessmentPage() {
                 hazards={hazards}
                 selectedHazards={selectedHazards}
                 onSelectionChange={setSelectedHazards}
+                assessmentId={id}
               />
             )}
             {currentStep === 2 && (

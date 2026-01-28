@@ -336,6 +336,74 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_override_logs: {
+        Row: {
+          action: string
+          assessment_id: string | null
+          created_at: string | null
+          hazard_id: string
+          id: string
+          org_id: string
+          reason: string | null
+          regulation_name: string
+          regulatory_requirement_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          assessment_id?: string | null
+          created_at?: string | null
+          hazard_id: string
+          id?: string
+          org_id: string
+          reason?: string | null
+          regulation_name: string
+          regulatory_requirement_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          assessment_id?: string | null
+          created_at?: string | null
+          hazard_id?: string
+          id?: string
+          org_id?: string
+          reason?: string | null
+          regulation_name?: string
+          regulatory_requirement_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_override_logs_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_override_logs_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_override_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_override_logs_regulatory_requirement_id_fkey"
+            columns: ["regulatory_requirement_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_requirements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consequence_weights: {
         Row: {
           consequence_id: string
@@ -574,6 +642,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "executive_reports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hazard_ai_scores: {
+        Row: {
+          ai_reasoning: string | null
+          created_at: string | null
+          expires_at: string | null
+          hazard_id: string
+          id: string
+          org_id: string
+          peer_adoption_rate: number | null
+          relevance_score: number
+          tier: string
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          hazard_id: string
+          id?: string
+          org_id: string
+          peer_adoption_rate?: number | null
+          relevance_score: number
+          tier: string
+        }
+        Update: {
+          ai_reasoning?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          hazard_id?: string
+          id?: string
+          org_id?: string
+          peer_adoption_rate?: number | null
+          relevance_score?: number
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hazard_ai_scores_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hazard_ai_scores_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1105,6 +1224,56 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regulatory_requirements: {
+        Row: {
+          created_at: string | null
+          effective_date: string | null
+          hazard_id: string
+          id: string
+          industry_type: string
+          non_compliance_consequences: string
+          province: string
+          regulation_name: string
+          regulation_section: string | null
+          requirement_description: string
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          effective_date?: string | null
+          hazard_id: string
+          id?: string
+          industry_type: string
+          non_compliance_consequences: string
+          province: string
+          regulation_name: string
+          regulation_section?: string | null
+          requirement_description: string
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          effective_date?: string | null
+          hazard_id?: string
+          id?: string
+          industry_type?: string
+          non_compliance_consequences?: string
+          province?: string
+          regulation_name?: string
+          regulation_section?: string | null
+          requirement_description?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regulatory_requirements_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
             referencedColumns: ["id"]
           },
         ]
