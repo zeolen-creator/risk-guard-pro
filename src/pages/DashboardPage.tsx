@@ -410,6 +410,12 @@ export default function DashboardPage() {
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link to="/settings/weights">
+                    <Scale className="h-4 w-4 mr-2" />
+                    View Consequence Weights
+                  </Link>
+                </Button>
+                <Button variant="outline" className="w-full justify-start" asChild>
                   <Link to="/analytics">
                     <Flame className="h-4 w-4 mr-2" />
                     Run Monte Carlo

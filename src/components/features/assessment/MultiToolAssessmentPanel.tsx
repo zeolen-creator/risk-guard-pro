@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Calculator, Brain, Edit3, Loader2, CheckCircle2, AlertTriangle, 
   Sparkles, DollarSign, TrendingUp, Settings, Eye, Info, 
-  FileText, BarChart3, Target 
+  FileText, BarChart3, Target, ChevronDown 
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -937,48 +939,118 @@ export function MultiToolAssessmentPanel({
                               <span>Bins: {mcResults.data_quality.bin_count} | Integrity: {(mcResults.data_quality.total_probability * 100).toFixed(1)}%</span>
                             </div>
                           )}
+                          
+                          {/* Collapsible Bin Details Table */}
+                          <Collapsible className="mt-3">
+                            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-primary hover:text-primary/80 font-medium w-full justify-center py-2 border rounded-md hover:bg-muted/50 transition-colors">
+                              <ChevronDown className="h-3 w-3" />
+                              View Bin Details
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="mt-2">
+                              <div className="border rounded-md overflow-hidden">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                      <TableHead className="text-xs h-8">Loss Range</TableHead>
+                                      <TableHead className="text-xs h-8 text-right">Probability</TableHead>
+                                      <TableHead className="text-xs h-8 text-right">Occurrences</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {mcResults.distribution.map((bin, idx) => (
+                                      <TableRow key={idx} className="hover:bg-muted/30">
+                                        <TableCell className="text-xs py-2">
+                                          ${bin.range_start.toLocaleString()} - ${bin.range_end.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-xs py-2 text-right font-medium">
+                                          {(bin.probability * 100).toFixed(1)}%
+                                        </TableCell>
+                                        <TableCell className="text-xs py-2 text-right text-muted-foreground">
+                                          {bin.count.toLocaleString()}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
                         </CardContent>
                       </Card>
                     )}
 
                     {/* Probability Thresholds Chart */}
-                    {mcResults.probability_exceeds_threshold && (
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Target className="h-4 w-4" />
-                            Probability of Exceeding Thresholds
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="h-[180px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={getThresholdData()}>
-                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                <XAxis 
-                                  dataKey="threshold" 
-                                  tick={{ fontSize: 10 }}
-                                  className="text-muted-foreground"
-                                />
-                                <YAxis 
-                                  tick={{ fontSize: 10 }} 
-                                  tickFormatter={(v) => `${v.toFixed(0)}%`}
-                                  className="text-muted-foreground"
-                                />
-                                <Tooltip 
-                                  formatter={(value: number) => [`${value.toFixed(1)}%`, "Probability"]}
-                                  contentStyle={{ 
-                                    backgroundColor: "hsl(var(--background))",
-                                    border: "1px solid hsl(var(--border))"
-                                  }}
-                                />
-                                <Bar dataKey="probability" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
+                    {mcResults.probability_exceeds_threshold && (() => {
+                      const thresholdData = getThresholdData();
+                      // Validate that probabilities decline (higher thresholds should have lower probabilities)
+                      let hasThresholdError = false;
+                      for (let i = 0; i < thresholdData.length - 1; i++) {
+                        if (thresholdData[i + 1].probability > thresholdData[i].probability) {
+                          hasThresholdError = true;
+                          break;
+                        }
+                      }
+                      
+                      return (
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                              <Target className="h-4 w-4" />
+                              Probability of Exceeding Thresholds
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {hasThresholdError && (
+                              <Alert variant="destructive" className="mb-3">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription className="text-xs">
+                                  <strong>Data Quality Warning:</strong> Probabilities should decline as thresholds increase. 
+                                  Try re-running the simulation with more iterations for more accurate results.
+                                </AlertDescription>
+                              </Alert>
+                            )}
+                            <div className="h-[180px]">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={thresholdData}>
+                                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                  <XAxis 
+                                    dataKey="threshold" 
+                                    tick={{ fontSize: 10 }}
+                                    className="text-muted-foreground"
+                                  />
+                                  <YAxis 
+                                    tick={{ fontSize: 10 }} 
+                                    tickFormatter={(v) => `${v.toFixed(0)}%`}
+                                    domain={[0, 100]}
+                                    className="text-muted-foreground"
+                                  />
+                                  <Tooltip 
+                                    formatter={(value: number) => [`${value.toFixed(1)}%`, "Probability"]}
+                                    contentStyle={{ 
+                                      backgroundColor: "hsl(var(--background))",
+                                      border: "1px solid hsl(var(--border))"
+                                    }}
+                                  />
+                                  <Bar dataKey="probability" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                            {/* Threshold Values Summary */}
+                            <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                              {thresholdData.map((t) => (
+                                <Badge 
+                                  key={t.threshold} 
+                                  variant="outline" 
+                                  className="text-xs"
+                                >
+                                  P(≥{t.threshold}): {t.probability.toFixed(1)}%
+                                </Badge>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })()}
 
                     {/* Plain Language Interpretation Panel */}
                     {(() => {
@@ -1048,26 +1120,41 @@ export function MultiToolAssessmentPanel({
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setMcMode("config")}
-                        className="flex-1"
-                      >
-                        <Settings className="h-4 w-4 mr-1" />
-                        Adjust Parameters
-                      </Button>
-                      <Button
-                        onClick={() => onRecommendation({ 
-                          likelihood: getInterpretation()?.suggestedScore || mapEalToLikelihood(mcResults.eal_amount), 
-                          source: "Monte Carlo Simulation" 
-                        })}
-                        className="flex-1"
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Apply Score ({getInterpretation()?.suggestedScore || mapEalToLikelihood(mcResults.eal_amount)}/6)
-                      </Button>
-                    </div>
+                    {(() => {
+                      const interpretation = getInterpretation();
+                      const suggestedScore = interpretation?.suggestedScore || mapEalToLikelihood(mcResults.eal_amount);
+                      
+                      // Color-coded button based on suggested score
+                      const getScoreButtonClass = (score: number) => {
+                        if (score >= 5) return "bg-destructive hover:bg-destructive/90 text-destructive-foreground";
+                        if (score >= 4) return "bg-orange-500 hover:bg-orange-600 text-white";
+                        if (score >= 3) return "bg-yellow-500 hover:bg-yellow-600 text-white";
+                        return "bg-green-600 hover:bg-green-700 text-white";
+                      };
+                      
+                      return (
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setMcMode("config")}
+                            className="flex-1"
+                          >
+                            <Settings className="h-4 w-4 mr-1" />
+                            Adjust Parameters
+                          </Button>
+                          <Button
+                            onClick={() => onRecommendation({ 
+                              likelihood: suggestedScore, 
+                              source: "Monte Carlo Simulation" 
+                            })}
+                            className={`flex-1 ${getScoreButtonClass(suggestedScore)}`}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Apply Score ({suggestedScore}/6)
+                          </Button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </CardContent>
