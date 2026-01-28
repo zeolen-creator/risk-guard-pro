@@ -233,6 +233,7 @@ export default function NewAssessmentPage() {
                 hazards={hazards}
                 selectedHazards={selectedHazards}
                 onSelectionChange={setSelectedHazards}
+                assessmentId={assessmentId || undefined}
               />
             )}
             {currentStep === 2 && (

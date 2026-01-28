@@ -50,6 +50,11 @@
     --risk-medium: 38 92% 50%;
     --risk-low: 142 71% 45%;
 
+    /* Tier colors for hazard recommendations */
+    --tier-high: 142 71% 45%;
+    --tier-medium: 38 92% 50%;
+    --tier-low: 0 72% 51%;
+
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 222 47% 20%;
