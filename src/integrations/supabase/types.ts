@@ -952,7 +952,7 @@ export type Database = {
           {
             foreignKeyName: "org_news_feed_org_id_fkey"
             columns: ["org_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
