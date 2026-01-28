@@ -47,11 +47,18 @@ export function IncidentLogPanel() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  const [newIncident, setNewIncident] = useState({
+  const [newIncident, setNewIncident] = useState<{
+    title: string;
+    description: string;
+    incident_date: string;
+    severity: "low" | "medium" | "high" | "critical";
+    location: string;
+    estimated_cost: string;
+  }>({
     title: "",
     description: "",
     incident_date: new Date().toISOString().split("T")[0],
-    severity: "medium" as const,
+    severity: "medium",
     location: "",
     estimated_cost: "",
   });
