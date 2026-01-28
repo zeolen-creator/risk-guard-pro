@@ -316,13 +316,32 @@ export function MultiToolAssessmentPanel({
 
     setAiStatus("running");
     try {
+      // Fetch organization context for the AI research request
+      const { data: orgData, error: orgError } = await supabase
+        .from("organizations")
+        .select("name, sector, region, primary_location, key_facilities, size")
+        .eq("id", profile.org_id)
+        .single();
+
+      if (orgError || !orgData) {
+        throw new Error("Could not fetch organization context");
+      }
+
       const { data, error } = await supabase.functions.invoke("ai-research", {
         body: {
-          hazardName,
-          hazardCategory,
-          researchType: "probability",
-          assessmentId,
-          hazardId,
+          hazard_name: hazardName,
+          hazard_category: hazardCategory,
+          research_type: "probability",
+          org_context: {
+            name: orgData.name,
+            sector: orgData.sector,
+            region: orgData.region,
+            primary_location: orgData.primary_location,
+            key_facilities: orgData.key_facilities,
+            size: orgData.size,
+          },
+          assessment_id: assessmentId,
+          hazard_id: hazardId,
         },
       });
 
