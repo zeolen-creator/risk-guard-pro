@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.monte-carlo]
 verify_jwt = false
+
+[functions.fetch-regional-news]
+verify_jwt = false
