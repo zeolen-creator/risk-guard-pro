@@ -13,6 +13,7 @@ export interface NewsItem {
   relevance_score: number;
   category: string;
   severity: string;
+  image_url?: string | null;
 }
 
 export interface WeatherAlert {
