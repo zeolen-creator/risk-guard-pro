@@ -11,6 +11,7 @@ import { BenchmarkDashboard } from "@/components/features/benchmarking/Benchmark
 import { IncidentLogPanel } from "@/components/features/incidents/IncidentLogPanel";
 import { ControlsPanel } from "@/components/features/controls/ControlsPanel";
 import { ExecutiveReportsPanel } from "@/components/features/reports/ExecutiveReportsPanel";
+import { MonteCarloPanel } from "@/components/features/simulations/MonteCarloPanel";
 
 export default function AnalyticsPage() {
   const { signOut } = useAuth();
@@ -66,8 +67,9 @@ export default function AnalyticsPage() {
         </div>
 
         <Tabs defaultValue="predictions" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto">
             <TabsTrigger value="predictions" className="py-2">Predictions</TabsTrigger>
+            <TabsTrigger value="simulations" className="py-2">Simulations</TabsTrigger>
             <TabsTrigger value="benchmarking" className="py-2">Benchmarking</TabsTrigger>
             <TabsTrigger value="incidents" className="py-2">Incidents</TabsTrigger>
             <TabsTrigger value="controls" className="py-2">Controls</TabsTrigger>
@@ -76,6 +78,10 @@ export default function AnalyticsPage() {
 
           <TabsContent value="predictions">
             <RiskPredictionPanel />
+          </TabsContent>
+
+          <TabsContent value="simulations">
+            <MonteCarloPanel />
           </TabsContent>
 
           <TabsContent value="benchmarking">
