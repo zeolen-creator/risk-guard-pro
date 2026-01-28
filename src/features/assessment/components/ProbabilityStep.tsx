@@ -5,7 +5,7 @@ import { Hazard } from "@/hooks/useHazards";
 import { PROBABILITY_SCORES } from "@/constants/hazards";
 import { ProbabilityTable } from "@/components/ProbabilityTable";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, Info, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { AIResearchPanel } from "./AIResearchPanel";
+import { MultiToolAssessmentPanel } from "@/components/features/assessment/MultiToolAssessmentPanel";
 
 interface ProbabilityStepProps {
   hazards: Hazard[];
@@ -31,6 +31,8 @@ export function ProbabilityStep({
   assessmentId,
 }: ProbabilityStepProps) {
   const [showTable, setShowTable] = useState(true);
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
+  
   const selectedHazardData = hazards.filter((h) =>
     selectedHazards.includes(h.id)
   );
@@ -45,12 +47,23 @@ export function ProbabilityStep({
     return "bg-destructive/20 text-destructive border-destructive/50";
   };
 
+  const toggleTools = (hazardId: string) => {
+    setExpandedTools(prev => ({
+      ...prev,
+      [hazardId]: !prev[hazardId]
+    }));
+  };
+
+  const handleRecommendation = (hazardId: string, data: { likelihood: number; source: string }) => {
+    onProbabilityChange(hazardId, data.likelihood);
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold">Assign Probability</h3>
         <p className="text-sm text-muted-foreground">
-          Rate the likelihood of each hazard occurring
+          Rate the likelihood of each hazard occurring. Use the Decision Support Tools to help estimate scores.
         </p>
       </div>
 
@@ -71,13 +84,14 @@ export function ProbabilityStep({
         </CollapsibleContent>
       </Collapsible>
 
-      <ScrollArea className="h-[350px] md:h-[400px]">
-        <div className="space-y-3 pr-4">
+      <ScrollArea className="h-[450px] md:h-[500px]">
+        <div className="space-y-4 pr-4">
           {selectedHazardData.map((hazard) => {
             const currentValue = probabilities[hazard.id] || 1;
             const probabilityInfo = PROBABILITY_SCORES.find(
               (p) => p.score === currentValue
             );
+            const isToolsExpanded = expandedTools[hazard.id] || false;
 
             return (
               <Card key={hazard.id} className="overflow-hidden">
@@ -97,8 +111,43 @@ export function ProbabilityStep({
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="py-3 px-4 pt-0">
-                  <div className="space-y-3">
+                <CardContent className="py-3 px-4 pt-0 space-y-3">
+                  {/* Decision Support Tools Toggle */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleTools(hazard.id)}
+                    className="w-full justify-between border-primary/30 hover:bg-primary/5"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Decision Support Tools (Monte Carlo, AI, Manual)
+                    </span>
+                    {isToolsExpanded ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+
+                  {/* Multi-Tool Assessment Panel */}
+                  {isToolsExpanded && (
+                    <MultiToolAssessmentPanel
+                      hazardId={hazard.id}
+                      hazardName={hazard.category}
+                      hazardCategory={hazard.category}
+                      assessmentId={assessmentId}
+                      onRecommendation={(data) => handleRecommendation(hazard.id, data)}
+                    />
+                  )}
+
+                  {/* Manual Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Manual Score Adjustment
+                      </span>
+                    </div>
                     <Slider
                       value={[currentValue]}
                       onValueChange={([value]) =>
@@ -113,23 +162,13 @@ export function ProbabilityStep({
                       <span>1 - Rare</span>
                       <span>6 - Certain</span>
                     </div>
-                    {probabilityInfo && (
-                      <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                        {probabilityInfo.description} ({probabilityInfo.percentChance})
-                      </p>
-                    )}
-                    
-                    {/* AI Research Panel */}
-                    <AIResearchPanel
-                      hazardId={hazard.id}
-                      hazardName={hazard.category}
-                      hazardCategory={hazard.category}
-                      researchType="probability"
-                      assessmentId={assessmentId}
-                      currentValue={currentValue}
-                      onApplyValue={(value) => onProbabilityChange(hazard.id, value)}
-                    />
                   </div>
+
+                  {probabilityInfo && (
+                    <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                      {probabilityInfo.description} ({probabilityInfo.percentChance})
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             );
