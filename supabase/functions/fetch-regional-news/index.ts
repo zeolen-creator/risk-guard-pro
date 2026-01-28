@@ -23,11 +23,18 @@ const PROVINCE_WEATHER_RSS: Record<string, string> = {
   YT: "https://weather.gc.ca/rss/warning/yt-16_e.xml",
 };
 
-// National news RSS feeds
+// National and regional news RSS feeds
 const NATIONAL_NEWS_FEEDS = [
+  // National feeds
+  { name: "CBC Top Stories", url: "https://www.cbc.ca/webfeed/rss/rss-topstories" },
   { name: "CBC Canada", url: "https://www.cbc.ca/webfeed/rss/rss-canada" },
-  { name: "CTV News", url: "https://www.ctvnews.ca/rss/ctvnews-ca-top-stories-public-rss-1.822009" },
+  { name: "Global News Canada", url: "https://globalnews.ca/canada/feed/" },
   { name: "Global News", url: "https://globalnews.ca/feed/" },
+  // Toronto-specific
+  { name: "CBC Toronto", url: "https://www.cbc.ca/webfeed/rss/rss-canada-toronto" },
+  { name: "Global News Toronto", url: "https://globalnews.ca/toronto/feed/" },
+  // Weather-specific
+  { name: "CBC Weather", url: "https://www.cbc.ca/webfeed/rss/rss-weather" },
 ];
 
 // Industry-specific keyword mapping
@@ -192,15 +199,28 @@ function calculateRelevance(
     if (text.includes(keyword.toLowerCase())) score += 25;
   });
 
-  // Check for risk-related keywords
+  // Check for risk-related keywords (expanded list)
   const riskKeywords = [
     "warning", "alert", "emergency", "evacuate", "flood", "fire", "storm",
     "power outage", "cyber attack", "data breach", "recall", "shutdown",
     "strike", "protest", "closure", "disruption", "explosion", "hazard",
+    "snow", "snowstorm", "blizzard", "freezing", "ice", "cold", "weather",
+    "extreme", "dangerous", "critical", "severe", "major", "breaking",
+    "transit", "delay", "cancelled", "suspended", "road", "highway",
+    "accident", "crash", "incident", "crisis", "blackout", "outage",
   ];
   riskKeywords.forEach((keyword) => {
     if (text.includes(keyword)) score += 15;
   });
+
+  // Boost weather-related content during winter months (Nov-Mar)
+  const currentMonth = new Date().getMonth();
+  if ([0, 1, 2, 10, 11].includes(currentMonth)) {
+    const winterKeywords = ["snow", "ice", "cold", "freeze", "blizzard", "winter", "storm"];
+    winterKeywords.forEach((keyword) => {
+      if (text.includes(keyword)) score += 20;
+    });
+  }
 
   return score;
 }
@@ -383,8 +403,8 @@ Deno.serve(async (req) => {
             };
           })
           .filter((item) => {
-            // Only keep items with some relevance
-            if (item.relevance_score < 20) return false;
+            // Keep items with minimal relevance (lowered threshold to catch more)
+            if (item.relevance_score < 10) return false;
             
             // Filter by enabled categories
             if (enabledCategories[item.category] === false) return false;
@@ -392,7 +412,7 @@ Deno.serve(async (req) => {
             return true;
           })
           .sort((a, b) => b.relevance_score - a.relevance_score)
-          .slice(0, 15); // Top 15 most relevant
+          .slice(0, 25); // Top 25 most relevant
 
         feedData.news_items = relevantNews.map((item) => ({
           id: item.hash,
