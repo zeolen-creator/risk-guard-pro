@@ -891,6 +891,73 @@ export type Database = {
           },
         ]
       }
+      news_dismissals: {
+        Row: {
+          dismissed_at: string | null
+          id: string
+          news_item_hash: string
+          org_id: string
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string | null
+          id?: string
+          news_item_hash: string
+          org_id: string
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string | null
+          id?: string
+          news_item_hash?: string
+          org_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_dismissals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_news_feed: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          feed_data: Json
+          fetched_at: string | null
+          id: string
+          org_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          feed_data?: Json
+          fetched_at?: string | null
+          id?: string
+          org_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          feed_data?: Json
+          fetched_at?: string | null
+          id?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_news_feed_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_documents: {
         Row: {
           created_at: string
@@ -937,8 +1004,11 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          industry_sub_sectors: string[] | null
+          industry_type: string | null
           key_facilities: string[] | null
           name: string
+          news_settings: Json | null
           owner_id: string
           primary_location: string | null
           region: string
@@ -951,8 +1021,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          industry_sub_sectors?: string[] | null
+          industry_type?: string | null
           key_facilities?: string[] | null
           name: string
+          news_settings?: Json | null
           owner_id: string
           primary_location?: string | null
           region: string
@@ -965,8 +1038,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          industry_sub_sectors?: string[] | null
+          industry_type?: string | null
           key_facilities?: string[] | null
           name?: string
+          news_settings?: Json | null
           owner_id?: string
           primary_location?: string | null
           region?: string
