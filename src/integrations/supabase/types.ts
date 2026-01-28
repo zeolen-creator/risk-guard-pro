@@ -1059,7 +1059,9 @@ export type Database = {
           department: string | null
           email: string | null
           expertise: string | null
+          first_name: string | null
           id: string
+          last_name: string | null
           org_id: string | null
           role_title: string | null
           special_considerations: string | null
@@ -1072,7 +1074,9 @@ export type Database = {
           department?: string | null
           email?: string | null
           expertise?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           org_id?: string | null
           role_title?: string | null
           special_considerations?: string | null
@@ -1085,7 +1089,9 @@ export type Database = {
           department?: string | null
           email?: string | null
           expertise?: string | null
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           org_id?: string | null
           role_title?: string | null
           special_considerations?: string | null
