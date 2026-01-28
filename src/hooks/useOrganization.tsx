@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
+import type { NewsSettings } from "@/constants/canadianProvinces";
 
 export interface Organization {
   id: string;
@@ -14,6 +15,9 @@ export interface Organization {
   weights_configured: boolean;
   primary_location: string | null;
   key_facilities: string[] | null;
+  industry_type: string | null;
+  industry_sub_sectors: string[] | null;
+  news_settings: NewsSettings | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,7 +40,11 @@ export function useOrganization() {
         if (error.code === "PGRST116") return null;
         throw error;
       }
-      return data;
+      // Cast news_settings from Json to NewsSettings
+      return {
+        ...data,
+        news_settings: data.news_settings as unknown as NewsSettings | null,
+      } as Organization;
     },
     enabled: !!profile?.org_id,
   });
@@ -47,7 +55,7 @@ export function useCreateOrganization() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (org: Omit<Organization, "id" | "owner_id" | "created_at" | "updated_at">) => {
+    mutationFn: async (org: Omit<Organization, "id" | "owner_id" | "created_at" | "updated_at" | "industry_type" | "industry_sub_sectors" | "news_settings">) => {
       if (!user?.id) throw new Error("Not authenticated");
 
       // Create organization
@@ -97,6 +105,30 @@ export function useCreateOrganization() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organization"] });
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}
+
+export function useUpdateOrganization() {
+  const queryClient = useQueryClient();
+  const { data: profile } = useProfile();
+
+  return useMutation({
+    mutationFn: async (updates: Partial<Pick<Organization, "primary_location" | "industry_type" | "industry_sub_sectors" | "news_settings" | "key_facilities">>) => {
+      if (!profile?.org_id) throw new Error("No organization found");
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .update(updates as Record<string, unknown>)
+        .eq("id", profile.org_id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["organization"] });
     },
   });
 }
