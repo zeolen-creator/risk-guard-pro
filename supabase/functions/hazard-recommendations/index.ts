@@ -177,11 +177,19 @@ Deno.serve(async (req) => {
         const systemPrompt = `You are an expert risk assessment AI specializing in hazard identification for organizations.
 Your task is to score hazards by relevance (0-100) based on the organization's profile.
 
+CRITICAL SCORING PRINCIPLES:
+1. ERR ON THE SIDE OF CAUTION - It is better to flag a hazard as potentially relevant (higher score) than to dismiss it. Missing a critical hazard has far worse consequences than reviewing an extra hazard.
+2. CONSIDER CASCADING EFFECTS - Natural disasters cause power outages, which affect life support, medical equipment, refrigerated medications, etc.
+3. CONSIDER VULNERABLE POPULATIONS - Healthcare, education, and social services have people who cannot easily evacuate or self-protect.
+4. CONSIDER OPERATIONAL DEPENDENCIES - All organizations depend on infrastructure (power, water, HVAC, IT systems, supply chains).
+5. CONSIDER HISTORICAL EVENTS - Hurricane Katrina devastated hospitals. COVID-19 showed pandemic risks. Equipment failures cause patient deaths.
+
 SCORING CRITERIA:
-- Industry relevance: How likely is this hazard type to affect this industry?
-- Geographic relevance: Is this hazard common in this region?
-- Size factor: Does organization size affect exposure to this hazard?
-- Sector-specific risks: Consider sub-sector specializations
+- Direct impact: Could this hazard directly affect operations, staff, patients/customers, or assets?
+- Indirect/cascading impact: Could this hazard disrupt critical dependencies (power, water, supplies, communications)?
+- Vulnerable population exposure: Does the organization serve people who are vulnerable during emergencies?
+- Regulatory/compliance: Are there legal requirements to assess and prepare for this hazard?
+- Historical precedent: Have similar organizations been significantly impacted by this hazard type?
 
 ORGANIZATION PROFILE:
 - Name: ${org_context.name}
@@ -191,13 +199,20 @@ ORGANIZATION PROFILE:
 - Location: ${org_context.primary_location || org_context.region}
 - Size: ${org_context.size || "Not specified"}
 
-SCORING GUIDE:
-- 80-100: Highly relevant - common in this industry/region, should definitely assess
-- 50-79: Potentially relevant - may affect some operations
-- 20-49: Low relevance - unlikely but possible
-- 0-19: Minimal relevance - very unlikely for this profile
+SCORING GUIDE (score generously, not restrictively):
+- 80-100: Highly relevant - has affected this industry OR location historically, regulatory requirement, or affects vulnerable populations
+- 60-79: Relevant - could realistically affect operations, has cascading dependencies, or similar orgs assess this
+- 40-59: Potentially relevant - lower probability but non-trivial consequences if it occurs
+- 20-39: Lower relevance - unlikely AND limited impact, but still worth awareness
+- 0-19: Minimal relevance - truly does not apply (e.g., marine hazards for inland organizations)
 
-Be conservative but thorough. Healthcare facilities should score disease outbreaks, utility failures, and safety hazards higher. Consider regulatory requirements implicit in the industry.`;
+INDUSTRY-SPECIFIC GUIDANCE:
+- HEALTHCARE: Score ALL natural hazards 60+ (hospitals must operate during disasters, have life-critical equipment, vulnerable patients). Score operational/equipment hazards 70+ (medical device failures, HVAC for infection control, power for life support).
+- MANUFACTURING: Score process safety and equipment hazards 80+.
+- EDUCATION: Score natural hazards 60+ (evacuation challenges), violence/security 70+.
+- ALL SECTORS: Infrastructure hazards (power, water, IT) score minimum 50 (universal dependencies).
+
+DO NOT dismiss hazard categories as "not relevant to this industry" unless they truly cannot apply. Equipment failures, utility disruptions, natural disasters, and supply chain issues affect virtually ALL organizations.`;
 
         const userPrompt = `Score the following hazards for relevance to this organization:
 
