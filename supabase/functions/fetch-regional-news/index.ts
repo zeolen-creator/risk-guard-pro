@@ -23,34 +23,66 @@ const PROVINCE_WEATHER_RSS: Record<string, string> = {
   YT: "https://weather.gc.ca/rss/warning/yt-16_e.xml",
 };
 
-// News RSS feeds organized by category for better coverage
-const NEWS_FEEDS = {
-  // National news
-  national: [
-    { name: "CBC Top Stories", url: "https://www.cbc.ca/webfeed/rss/rss-topstories", category: "general" },
-    { name: "CBC Canada", url: "https://www.cbc.ca/webfeed/rss/rss-canada", category: "general" },
-    { name: "Global News Canada", url: "https://globalnews.ca/canada/feed/", category: "general" },
-  ],
-  // Toronto-specific
-  toronto: [
+// News RSS feeds organized by category and region for province-specific filtering
+const NEWS_FEEDS_BY_REGION: Record<string, { name: string; url: string; category: string }[]> = {
+  // Ontario-specific feeds
+  ON: [
     { name: "CBC Toronto", url: "https://www.cbc.ca/webfeed/rss/rss-canada-toronto", category: "general" },
     { name: "Global News Toronto", url: "https://globalnews.ca/toronto/feed/", category: "general" },
   ],
-  // Business & Finance
+  // British Columbia
+  BC: [
+    { name: "CBC British Columbia", url: "https://www.cbc.ca/webfeed/rss/rss-canada-britishcolumbia", category: "general" },
+    { name: "Global News BC", url: "https://globalnews.ca/bc/feed/", category: "general" },
+  ],
+  // Alberta
+  AB: [
+    { name: "CBC Edmonton", url: "https://www.cbc.ca/webfeed/rss/rss-canada-edmonton", category: "general" },
+    { name: "CBC Calgary", url: "https://www.cbc.ca/webfeed/rss/rss-canada-calgary", category: "general" },
+    { name: "Global News Edmonton", url: "https://globalnews.ca/edmonton/feed/", category: "general" },
+    { name: "Global News Calgary", url: "https://globalnews.ca/calgary/feed/", category: "general" },
+  ],
+  // Quebec
+  QC: [
+    { name: "CBC Montreal", url: "https://www.cbc.ca/webfeed/rss/rss-canada-montreal", category: "general" },
+    { name: "Global News Montreal", url: "https://globalnews.ca/montreal/feed/", category: "general" },
+  ],
+  // Manitoba
+  MB: [
+    { name: "CBC Manitoba", url: "https://www.cbc.ca/webfeed/rss/rss-canada-manitoba", category: "general" },
+    { name: "Global News Winnipeg", url: "https://globalnews.ca/winnipeg/feed/", category: "general" },
+  ],
+  // Saskatchewan
+  SK: [
+    { name: "CBC Saskatchewan", url: "https://www.cbc.ca/webfeed/rss/rss-canada-saskatchewan", category: "general" },
+    { name: "Global News Saskatoon", url: "https://globalnews.ca/saskatoon/feed/", category: "general" },
+    { name: "Global News Regina", url: "https://globalnews.ca/regina/feed/", category: "general" },
+  ],
+  // Nova Scotia
+  NS: [
+    { name: "CBC Nova Scotia", url: "https://www.cbc.ca/webfeed/rss/rss-canada-novascotia", category: "general" },
+    { name: "Global News Halifax", url: "https://globalnews.ca/halifax/feed/", category: "general" },
+  ],
+  // New Brunswick
+  NB: [
+    { name: "CBC New Brunswick", url: "https://www.cbc.ca/webfeed/rss/rss-canada-newbrunswick", category: "general" },
+    { name: "Global News New Brunswick", url: "https://globalnews.ca/new-brunswick/feed/", category: "general" },
+  ],
+};
+
+// Category-specific feeds (apply to all regions)
+const CATEGORY_FEEDS = {
   business: [
     { name: "CBC Business", url: "https://www.cbc.ca/webfeed/rss/rss-business", category: "financial" },
     { name: "Global News Money", url: "https://globalnews.ca/money/feed/", category: "financial" },
   ],
-  // Health
   health: [
     { name: "CBC Health", url: "https://www.cbc.ca/webfeed/rss/rss-health", category: "health" },
     { name: "Global News Health", url: "https://globalnews.ca/health/feed/", category: "health" },
   ],
-  // Technology & Cybersecurity
   technology: [
     { name: "CBC Technology", url: "https://www.cbc.ca/webfeed/rss/rss-technology", category: "security" },
   ],
-  // Politics & Regulations
   politics: [
     { name: "CBC Politics", url: "https://www.cbc.ca/webfeed/rss/rss-politics", category: "general" },
     { name: "Global News Politics", url: "https://globalnews.ca/politics/feed/", category: "general" },
@@ -490,19 +522,23 @@ Deno.serve(async (req) => {
           console.log(`Found ${feedData.weather_alerts.length} weather alerts`);
         }
 
-        // 2. Fetch news from all feed categories
+        // 2. Fetch news from province-specific feeds + category feeds
         const allNewsItems: any[] = [];
         const enabledCategories = org.news_settings?.categories || {};
         
-        // Flatten all feeds into a single array with their categories
+        // Get province-specific feeds (if available)
+        const regionFeeds = provinceCode ? (NEWS_FEEDS_BY_REGION[provinceCode] || []) : [];
+        
+        // Combine province-specific feeds with category feeds
         const allFeeds = [
-          ...NEWS_FEEDS.national,
-          ...NEWS_FEEDS.toronto,
-          ...NEWS_FEEDS.business,
-          ...NEWS_FEEDS.health,
-          ...NEWS_FEEDS.technology,
-          ...NEWS_FEEDS.politics,
+          ...regionFeeds,
+          ...CATEGORY_FEEDS.business,
+          ...CATEGORY_FEEDS.health,
+          ...CATEGORY_FEEDS.technology,
+          ...CATEGORY_FEEDS.politics,
         ];
+        
+        console.log(`Using ${regionFeeds.length} province-specific feeds for ${provinceCode || 'unknown province'}`);
 
         for (const feed of allFeeds) {
           const newsItems = await fetchRSS(feed.url, feed.name);
