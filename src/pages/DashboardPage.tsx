@@ -30,6 +30,7 @@ import {
   History,
   Scale,
   Trash2,
+  BarChart3,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
@@ -327,6 +328,12 @@ export default function DashboardPage() {
                 <Link to="/settings/weights">
                   <Scale className="mr-2 h-4 w-4" />
                   View Consequence Weights
+                </Link>
+              </Button>
+              <Button className="w-full justify-start" variant="outline" asChild>
+                <Link to="/analytics">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Analytics & Insights
                 </Link>
               </Button>
             </CardContent>

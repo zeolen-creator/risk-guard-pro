@@ -205,6 +205,137 @@ export type Database = {
           },
         ]
       }
+      benchmark_data: {
+        Row: {
+          assessed_at: string
+          controls_implemented: number | null
+          created_at: string | null
+          hazard_category: string
+          hazard_name: string | null
+          id: string
+          industry: string
+          likelihood: number | null
+          org_size: string
+          region: string
+          risk_score: number
+          severity: number | null
+        }
+        Insert: {
+          assessed_at: string
+          controls_implemented?: number | null
+          created_at?: string | null
+          hazard_category: string
+          hazard_name?: string | null
+          id?: string
+          industry: string
+          likelihood?: number | null
+          org_size: string
+          region: string
+          risk_score: number
+          severity?: number | null
+        }
+        Update: {
+          assessed_at?: string
+          controls_implemented?: number | null
+          created_at?: string | null
+          hazard_category?: string
+          hazard_name?: string | null
+          id?: string
+          industry?: string
+          likelihood?: number | null
+          org_size?: string
+          region?: string
+          risk_score?: number
+          severity?: number | null
+        }
+        Relationships: []
+      }
+      benchmark_participation: {
+        Row: {
+          created_at: string | null
+          data_sharing_consent_version: string | null
+          opted_in: boolean | null
+          opted_in_at: string | null
+          opted_out_at: string | null
+          org_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_sharing_consent_version?: string | null
+          opted_in?: boolean | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          org_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_sharing_consent_version?: string | null
+          opted_in?: boolean | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benchmark_participation_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      benchmark_statistics: {
+        Row: {
+          avg_controls_per_assessment: number | null
+          avg_risk_score: number | null
+          calculated_at: string | null
+          hazard_category: string | null
+          id: string
+          industry: string
+          median_risk_score: number | null
+          org_size: string | null
+          percentile_25: number | null
+          percentile_75: number | null
+          percentile_90: number | null
+          region: string | null
+          sample_size: number
+          top_3_hazards: Json | null
+        }
+        Insert: {
+          avg_controls_per_assessment?: number | null
+          avg_risk_score?: number | null
+          calculated_at?: string | null
+          hazard_category?: string | null
+          id?: string
+          industry: string
+          median_risk_score?: number | null
+          org_size?: string | null
+          percentile_25?: number | null
+          percentile_75?: number | null
+          percentile_90?: number | null
+          region?: string | null
+          sample_size: number
+          top_3_hazards?: Json | null
+        }
+        Update: {
+          avg_controls_per_assessment?: number | null
+          avg_risk_score?: number | null
+          calculated_at?: string | null
+          hazard_category?: string | null
+          id?: string
+          industry?: string
+          median_risk_score?: number | null
+          org_size?: string | null
+          percentile_25?: number | null
+          percentile_75?: number | null
+          percentile_90?: number | null
+          region?: string | null
+          sample_size?: number
+          top_3_hazards?: Json | null
+        }
+        Relationships: []
+      }
       consequence_weights: {
         Row: {
           consequence_id: string
@@ -270,6 +401,185 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      control_tests: {
+        Row: {
+          control_id: string
+          created_at: string | null
+          findings: string | null
+          id: string
+          org_id: string
+          recommendations: string | null
+          result: string
+          test_date: string
+          test_type: string
+          tested_by: string | null
+        }
+        Insert: {
+          control_id: string
+          created_at?: string | null
+          findings?: string | null
+          id?: string
+          org_id: string
+          recommendations?: string | null
+          result: string
+          test_date: string
+          test_type: string
+          tested_by?: string | null
+        }
+        Update: {
+          control_id?: string
+          created_at?: string | null
+          findings?: string | null
+          id?: string
+          org_id?: string
+          recommendations?: string | null
+          result?: string
+          test_date?: string
+          test_type?: string
+          tested_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "control_tests_control_id_fkey"
+            columns: ["control_id"]
+            isOneToOne: false
+            referencedRelation: "controls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "control_tests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      controls: {
+        Row: {
+          control_type: string
+          cost_to_implement: number | null
+          created_at: string | null
+          description: string | null
+          effectiveness_rating: number | null
+          hazard_id: string | null
+          id: string
+          implementation_status: string | null
+          last_tested_at: string | null
+          name: string
+          next_review_date: string | null
+          org_id: string
+          responsible_party: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          control_type: string
+          cost_to_implement?: number | null
+          created_at?: string | null
+          description?: string | null
+          effectiveness_rating?: number | null
+          hazard_id?: string | null
+          id?: string
+          implementation_status?: string | null
+          last_tested_at?: string | null
+          name: string
+          next_review_date?: string | null
+          org_id: string
+          responsible_party?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          control_type?: string
+          cost_to_implement?: number | null
+          created_at?: string | null
+          description?: string | null
+          effectiveness_rating?: number | null
+          hazard_id?: string | null
+          id?: string
+          implementation_status?: string | null
+          last_tested_at?: string | null
+          name?: string
+          next_review_date?: string | null
+          org_id?: string
+          responsible_party?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "controls_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "controls_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      executive_reports: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          generated_by: string | null
+          id: string
+          key_findings: Json | null
+          org_id: string
+          period_end: string
+          period_start: string
+          recommendations: Json | null
+          report_type: string
+          risk_overview: Json | null
+          summary: Json
+          title: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          generated_by?: string | null
+          id?: string
+          key_findings?: Json | null
+          org_id: string
+          period_end: string
+          period_start: string
+          recommendations?: Json | null
+          report_type: string
+          risk_overview?: Json | null
+          summary: Json
+          title: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          generated_by?: string | null
+          id?: string
+          key_findings?: Json | null
+          org_id?: string
+          period_end?: string
+          period_start?: string
+          recommendations?: Json | null
+          report_type?: string
+          risk_overview?: Json | null
+          summary?: Json
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "executive_reports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hazard_assignments: {
         Row: {
@@ -365,6 +675,212 @@ export type Database = {
           tags?: string[] | null
         }
         Relationships: []
+      }
+      incidents: {
+        Row: {
+          actual_cost: number | null
+          affected_employees: number | null
+          assigned_to: string | null
+          created_at: string | null
+          description: string | null
+          downtime_hours: number | null
+          estimated_cost: number | null
+          hazard_id: string | null
+          id: string
+          incident_date: string
+          lessons_learned: string | null
+          location: string | null
+          org_id: string
+          reported_by: string | null
+          resolved_at: string | null
+          root_cause: string | null
+          severity: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          actual_cost?: number | null
+          affected_employees?: number | null
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          downtime_hours?: number | null
+          estimated_cost?: number | null
+          hazard_id?: string | null
+          id?: string
+          incident_date: string
+          lessons_learned?: string | null
+          location?: string | null
+          org_id: string
+          reported_by?: string | null
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          actual_cost?: number | null
+          affected_employees?: number | null
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          downtime_hours?: number | null
+          estimated_cost?: number | null
+          hazard_id?: string | null
+          id?: string
+          incident_date?: string
+          lessons_learned?: string | null
+          location?: string | null
+          org_id?: string
+          reported_by?: string | null
+          resolved_at?: string | null
+          root_cause?: string | null
+          severity?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidents_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monte_carlo_simulations: {
+        Row: {
+          ai_confidence: string | null
+          ai_sources: Json | null
+          assessment_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          data_source: string | null
+          direct_cost_distribution: Json
+          downtime_distribution: Json | null
+          eal_amount: number | null
+          eal_percentage: number | null
+          execution_time_ms: number | null
+          frequency_distribution: Json
+          hazard_id: string | null
+          id: string
+          indirect_cost_distribution: Json
+          iterations: number | null
+          org_id: string
+          percentile_10: number | null
+          percentile_50: number | null
+          percentile_90: number | null
+          probability_exceeds_threshold: Json | null
+          results: Json | null
+          severity_distribution: Json | null
+          status: string | null
+          template_id: string | null
+          time_horizon_years: number | null
+          var_95: number | null
+        }
+        Insert: {
+          ai_confidence?: string | null
+          ai_sources?: Json | null
+          assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_source?: string | null
+          direct_cost_distribution: Json
+          downtime_distribution?: Json | null
+          eal_amount?: number | null
+          eal_percentage?: number | null
+          execution_time_ms?: number | null
+          frequency_distribution: Json
+          hazard_id?: string | null
+          id?: string
+          indirect_cost_distribution: Json
+          iterations?: number | null
+          org_id: string
+          percentile_10?: number | null
+          percentile_50?: number | null
+          percentile_90?: number | null
+          probability_exceeds_threshold?: Json | null
+          results?: Json | null
+          severity_distribution?: Json | null
+          status?: string | null
+          template_id?: string | null
+          time_horizon_years?: number | null
+          var_95?: number | null
+        }
+        Update: {
+          ai_confidence?: string | null
+          ai_sources?: Json | null
+          assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_source?: string | null
+          direct_cost_distribution?: Json
+          downtime_distribution?: Json | null
+          eal_amount?: number | null
+          eal_percentage?: number | null
+          execution_time_ms?: number | null
+          frequency_distribution?: Json
+          hazard_id?: string | null
+          id?: string
+          indirect_cost_distribution?: Json
+          iterations?: number | null
+          org_id?: string
+          percentile_10?: number | null
+          percentile_50?: number | null
+          percentile_90?: number | null
+          probability_exceeds_threshold?: Json | null
+          results?: Json | null
+          severity_distribution?: Json | null
+          status?: string | null
+          template_id?: string | null
+          time_horizon_years?: number | null
+          var_95?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monte_carlo_simulations_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monte_carlo_simulations_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monte_carlo_simulations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monte_carlo_simulations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "simulation_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organization_documents: {
         Row: {
@@ -501,6 +1017,191 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      risk_alerts: {
+        Row: {
+          action_required: string | null
+          alert_type: string
+          created_at: string | null
+          description: string
+          dismissed_at: string | null
+          hazard_ids: string[] | null
+          id: string
+          is_read: boolean | null
+          org_id: string
+          severity: string
+          source_data: Json | null
+          title: string
+        }
+        Insert: {
+          action_required?: string | null
+          alert_type: string
+          created_at?: string | null
+          description: string
+          dismissed_at?: string | null
+          hazard_ids?: string[] | null
+          id?: string
+          is_read?: boolean | null
+          org_id: string
+          severity: string
+          source_data?: Json | null
+          title: string
+        }
+        Update: {
+          action_required?: string | null
+          alert_type?: string
+          created_at?: string | null
+          description?: string
+          dismissed_at?: string | null
+          hazard_ids?: string[] | null
+          id?: string
+          is_read?: boolean | null
+          org_id?: string
+          severity?: string
+          source_data?: Json | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_alerts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_predictions: {
+        Row: {
+          ai_reasoning: string | null
+          created_at: string | null
+          current_risk_score: number
+          hazard_id: string | null
+          id: string
+          org_id: string
+          predicted_risk_score: number
+          prediction_basis: string
+          prediction_confidence: number | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_data: Json | null
+          source_urls: string[] | null
+          time_horizon: string
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          created_at?: string | null
+          current_risk_score: number
+          hazard_id?: string | null
+          id?: string
+          org_id: string
+          predicted_risk_score: number
+          prediction_basis: string
+          prediction_confidence?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_data?: Json | null
+          source_urls?: string[] | null
+          time_horizon: string
+        }
+        Update: {
+          ai_reasoning?: string | null
+          created_at?: string | null
+          current_risk_score?: number
+          hazard_id?: string | null
+          id?: string
+          org_id?: string
+          predicted_risk_score?: number
+          prediction_basis?: string
+          prediction_confidence?: number | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_data?: Json | null
+          source_urls?: string[] | null
+          time_horizon?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_predictions_hazard_id_fkey"
+            columns: ["hazard_id"]
+            isOneToOne: false
+            referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_predictions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seasonal_patterns: {
+        Row: {
+          created_at: string | null
+          description: string
+          hazard_type: string
+          id: string
+          peak_months: number[]
+          region: string
+          risk_multiplier: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          hazard_type: string
+          id?: string
+          peak_months: number[]
+          region: string
+          risk_multiplier?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          hazard_type?: string
+          id?: string
+          peak_months?: number[]
+          region?: string
+          risk_multiplier?: number | null
+        }
+        Relationships: []
+      }
+      simulation_templates: {
+        Row: {
+          created_at: string | null
+          default_parameters: Json
+          description: string | null
+          hazard_category: string
+          hazard_name: string | null
+          id: string
+          region: string | null
+          source_notes: string | null
+          template_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          default_parameters: Json
+          description?: string | null
+          hazard_category: string
+          hazard_name?: string | null
+          id?: string
+          region?: string | null
+          source_notes?: string | null
+          template_name: string
+        }
+        Update: {
+          created_at?: string | null
+          default_parameters?: Json
+          description?: string | null
+          hazard_category?: string
+          hazard_name?: string | null
+          id?: string
+          region?: string | null
+          source_notes?: string | null
+          template_name?: string
+        }
+        Relationships: []
       }
       subscriptions: {
         Row: {
