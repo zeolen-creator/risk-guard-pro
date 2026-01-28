@@ -28,6 +28,13 @@ interface DistributionParams {
   lambda?: number;
 }
 
+interface HistogramBin {
+  range_start: number;
+  range_end: number;
+  count: number;
+  probability: number;
+}
+
 // Box-Muller transform for normal distribution
 function randomNormal(mean: number, std: number): number {
   const u1 = Math.random();
@@ -91,15 +98,6 @@ function sampleDistribution(params: DistributionParams): number {
   }
 }
 
-function percentile(arr: number[], p: number): number {
-  const sorted = [...arr].sort((a, b) => a - b);
-  const idx = (p / 100) * (sorted.length - 1);
-  const lower = Math.floor(idx);
-  const upper = Math.ceil(idx);
-  if (lower === upper) return sorted[lower];
-  return sorted[lower] + (sorted[upper] - sorted[lower]) * (idx - lower);
-}
-
 function runSimulation(params: SimulationParams): {
   results: number[];
   eal_amount: number;
@@ -108,13 +106,20 @@ function runSimulation(params: SimulationParams): {
   percentile_90: number;
   var_95: number;
   probability_exceeds_threshold: Record<string, number>;
+  distribution: HistogramBin[];
+  data_quality: {
+    min_loss: number;
+    max_loss: number;
+    total_probability: number;
+    bin_count: number;
+  };
 } {
   const iterations = params.iterations || 100000;
   const timeHorizon = params.time_horizon_years || 1;
-  const results: number[] = [];
+  const losses: number[] = [];
 
+  // Run simulations
   for (let i = 0; i < iterations; i++) {
-    // Sample frequency (events per year)
     const frequency = sampleDistribution(params.frequency_distribution);
     const eventsThisYear = Math.round(frequency * timeHorizon);
 
@@ -125,33 +130,109 @@ function runSimulation(params: SimulationParams): {
       totalLoss += directCost + indirectCost;
     }
 
-    results.push(totalLoss);
+    losses.push(totalLoss);
   }
 
-  // Calculate statistics
-  const eal_amount = results.reduce((a, b) => a + b, 0) / iterations;
-  const p10 = percentile(results, 10);
-  const p50 = percentile(results, 50);
-  const p90 = percentile(results, 90);
-  const var95 = percentile(results, 95);
+  // Sort losses ascending for percentile calculations
+  losses.sort((a, b) => a - b);
+
+  // Calculate key statistics
+  const eal = losses.reduce((sum, l) => sum + l, 0) / iterations;
+  const p10 = losses[Math.floor(iterations * 0.10)];
+  const p50 = losses[Math.floor(iterations * 0.50)];
+  const p90 = losses[Math.floor(iterations * 0.90)];
+  const var95 = losses[Math.floor(iterations * 0.95)];
+
+  // ============================================
+  // CORRECTED HISTOGRAM CALCULATION
+  // Using percentile-based bins for proper distribution
+  // ============================================
+
+  const minLoss = Math.max(0, losses[0]);
+  const maxLoss = losses[losses.length - 1];
+
+  // Create 10 bins using percentile-based edges (not equal-width)
+  const binCount = 10;
+  const binEdges: number[] = [];
+
+  for (let i = 0; i <= binCount; i++) {
+    const percentile = i / binCount;
+    const index = Math.floor(percentile * (iterations - 1));
+    binEdges.push(losses[index]);
+  }
+
+  // Remove duplicate edges and sort
+  const uniqueBinEdges = [...new Set(binEdges)].sort((a, b) => a - b);
+
+  // Count observations in each bin
+  const histogram: HistogramBin[] = [];
+  for (let i = 0; i < uniqueBinEdges.length - 1; i++) {
+    const rangeStart = uniqueBinEdges[i];
+    const rangeEnd = uniqueBinEdges[i + 1];
+
+    // Count losses in this bin
+    const count = losses.filter(l => l >= rangeStart && l < rangeEnd).length;
+
+    // CRITICAL: Calculate probability as fraction of total iterations
+    const probability = count / iterations;
+
+    histogram.push({
+      range_start: Math.round(rangeStart),
+      range_end: Math.round(rangeEnd),
+      count: count,
+      probability: probability, // Decimal format: 0.35 = 35%
+    });
+  }
+
+  // Handle last bin edge case
+  const lastBinStart = uniqueBinEdges[uniqueBinEdges.length - 1];
+  const lastBinCount = losses.filter(l => l >= lastBinStart).length;
+  if (lastBinCount > 0 && (histogram.length === 0 || histogram[histogram.length - 1].range_start !== lastBinStart)) {
+    histogram.push({
+      range_start: Math.round(lastBinStart),
+      range_end: Math.round(maxLoss),
+      count: lastBinCount,
+      probability: lastBinCount / iterations,
+    });
+  }
+
+  // Verify total probability sums to ~1.0
+  const totalProbability = histogram.reduce((sum, bin) => sum + bin.probability, 0);
+  console.log(`Histogram check: Total probability = ${totalProbability.toFixed(4)}`);
+
+  if (Math.abs(totalProbability - 1.0) > 0.01) {
+    console.warn(`WARNING: Histogram probabilities sum to ${totalProbability}, not 1.0`);
+  }
+
+  console.log('Distribution bins:');
+  histogram.forEach((bin, idx) => {
+    console.log(`  ${idx}: $${bin.range_start.toLocaleString()}-$${bin.range_end.toLocaleString()} = ${(bin.probability * 100).toFixed(1)}% (${bin.count} occurrences)`);
+  });
 
   // Calculate probability of exceeding thresholds
   const thresholds = [10000, 50000, 100000, 500000, 1000000];
   const probability_exceeds_threshold: Record<string, number> = {};
+
   for (const threshold of thresholds) {
-    const exceedCount = results.filter((r) => r > threshold).length;
-    probability_exceeds_threshold[`$${threshold.toLocaleString()}`] =
-      Math.round((exceedCount / iterations) * 10000) / 100;
+    const exceedCount = losses.filter((l) => l >= threshold).length;
+    probability_exceeds_threshold[threshold.toString()] = exceedCount / iterations;
   }
 
   return {
-    results: results.slice(0, 1000), // Store sample of results
-    eal_amount: Math.round(eal_amount * 100) / 100,
+    results: losses.slice(0, 1000), // Store sample of results
+    eal_amount: Math.round(eal * 100) / 100,
     percentile_10: Math.round(p10 * 100) / 100,
     percentile_50: Math.round(p50 * 100) / 100,
     percentile_90: Math.round(p90 * 100) / 100,
     var_95: Math.round(var95 * 100) / 100,
     probability_exceeds_threshold,
+    distribution: histogram,
+    data_quality: {
+      min_loss: Math.round(minLoss),
+      max_loss: Math.round(maxLoss),
+      total_probability: Math.round(totalProbability * 1000) / 1000,
+      bin_count: histogram.length,
+    },
   };
 }
 
@@ -234,7 +315,7 @@ Deno.serve(async (req) => {
       const results = runSimulation(simulationParams);
       const executionTime = Date.now() - startTime;
 
-      // Store results
+      // Store results with distribution and data quality
       const { data: simulation, error: insertError } = await supabase
         .from("monte_carlo_simulations")
         .insert({
@@ -248,7 +329,11 @@ Deno.serve(async (req) => {
           direct_cost_distribution: simulationParams.direct_cost_distribution,
           indirect_cost_distribution: simulationParams.indirect_cost_distribution,
           downtime_distribution: simulationParams.downtime_distribution || null,
-          results: { sample: results.results },
+          results: { 
+            sample: results.results,
+            distribution: results.distribution,
+            data_quality: results.data_quality,
+          },
           eal_amount: results.eal_amount,
           percentile_10: results.percentile_10,
           percentile_50: results.percentile_50,
@@ -285,6 +370,8 @@ Deno.serve(async (req) => {
             percentile_90: results.percentile_90,
             var_95: results.var_95,
             probability_exceeds_threshold: results.probability_exceeds_threshold,
+            distribution: results.distribution,
+            data_quality: results.data_quality,
           },
           execution_time_ms: executionTime,
         }),
