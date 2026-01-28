@@ -121,46 +121,74 @@ function sampleDistribution(params: DistributionParams): number {
 }
 
 function calculateHistogram(losses: number[], iterations: number): HistogramBin[] {
-  const minLoss = Math.max(0, losses[0]);
+  const minLoss = losses[0];
   const maxLoss = losses[losses.length - 1];
   
-  // Create 10 bins using percentile-based edges
-  const binCount = 10;
-  const binEdges: number[] = [];
-  
-  for (let i = 0; i <= binCount; i++) {
-    const percentile = i / binCount;
-    const index = Math.floor(percentile * (iterations - 1));
-    binEdges.push(losses[index]);
+  // Handle edge case where all losses are zero or identical
+  if (maxLoss === minLoss) {
+    return [{
+      range_start: Math.round(minLoss),
+      range_end: Math.round(maxLoss),
+      count: iterations,
+      probability: 1.0,
+    }];
   }
   
-  const uniqueBinEdges = [...new Set(binEdges)].sort((a, b) => a - b);
+  // Use fixed-width bins based on the ACTUAL loss range
+  // This shows the TRUE probability distribution, not equal-count percentiles
+  const binCount = 12;
   const histogram: HistogramBin[] = [];
   
-  for (let i = 0; i < uniqueBinEdges.length - 1; i++) {
-    const rangeStart = uniqueBinEdges[i];
-    const rangeEnd = uniqueBinEdges[i + 1];
-    const count = losses.filter(l => l >= rangeStart && l < rangeEnd).length;
-    const probability = count / iterations;
-    
+  // For right-skewed distributions (common in risk), use logarithmic bin edges
+  // This provides better resolution at lower values while still capturing tail risk
+  const nonZeroLosses = losses.filter(l => l > 0);
+  const zeroCount = losses.filter(l => l === 0).length;
+  
+  // First bin is always $0 (no-loss years)
+  if (zeroCount > 0) {
     histogram.push({
-      range_start: Math.round(rangeStart),
-      range_end: Math.round(rangeEnd),
-      count: count,
-      probability: probability,
+      range_start: 0,
+      range_end: 0,
+      count: zeroCount,
+      probability: zeroCount / iterations,
     });
   }
   
-  // Handle last bin edge case
-  const lastBinStart = uniqueBinEdges[uniqueBinEdges.length - 1];
-  const lastBinCount = losses.filter(l => l >= lastBinStart).length;
-  if (lastBinCount > 0 && (histogram.length === 0 || histogram[histogram.length - 1].range_start !== lastBinStart)) {
-    histogram.push({
-      range_start: Math.round(lastBinStart),
-      range_end: Math.round(maxLoss),
-      count: lastBinCount,
-      probability: lastBinCount / iterations,
-    });
+  if (nonZeroLosses.length === 0) {
+    return histogram;
+  }
+  
+  // For non-zero losses, create logarithmic bins for better visualization
+  const minNonZero = Math.max(1, nonZeroLosses[0]);
+  const maxNonZero = nonZeroLosses[nonZeroLosses.length - 1];
+  
+  // Calculate bin edges using logarithmic scale
+  const logMin = Math.log10(minNonZero);
+  const logMax = Math.log10(maxNonZero);
+  const logStep = (logMax - logMin) / (binCount - 1);
+  
+  const binEdges: number[] = [];
+  for (let i = 0; i < binCount; i++) {
+    const edge = Math.pow(10, logMin + i * logStep);
+    binEdges.push(edge);
+  }
+  binEdges.push(maxNonZero + 1); // Ensure we capture the max value
+  
+  // Count losses in each bin
+  for (let i = 0; i < binEdges.length - 1; i++) {
+    const rangeStart = binEdges[i];
+    const rangeEnd = binEdges[i + 1];
+    
+    const count = nonZeroLosses.filter(l => l >= rangeStart && l < rangeEnd).length;
+    
+    if (count > 0) {
+      histogram.push({
+        range_start: Math.round(rangeStart),
+        range_end: Math.round(rangeEnd),
+        count: count,
+        probability: count / iterations,
+      });
+    }
   }
   
   return histogram;
