@@ -379,17 +379,65 @@ function runCompoundSimulation(templates: TemplateConfig[], iterations: number):
   
   const multiScenarioRate = multiScenarioYears / iterations;
   
-  // Generate histogram
-  const histogram = calculateHistogram(losses, iterations);
-  const totalProbability = histogram.reduce((sum, bin) => sum + bin.probability, 0);
+  // Calculate threshold probabilities using DYNAMIC thresholds based on actual data
+  // This provides more meaningful probability breakdowns
+  const nonZeroLosses = losses.filter(l => l > 0);
+  const zeroLossCount = losses.length - nonZeroLosses.length;
   
-  // Calculate threshold probabilities
-  const thresholds = [10000, 50000, 100000, 500000, 1000000];
+  // Log diagnostic info for debugging
+  console.log(`Data verification: ${zeroLossCount} zero-loss years (${(zeroLossCount/iterations*100).toFixed(1)}%), ${iterations - zeroLossCount} non-zero years`);
+  
+  // Use data-driven thresholds: percentiles of the non-zero distribution
+  // This ensures meaningful differentiation in the probability chart
+  let thresholds: number[];
+  
+  if (nonZeroLosses.length > 0) {
+    nonZeroLosses.sort((a, b) => a - b);
+    const minNonZero = nonZeroLosses[0];
+    const maxNonZero = nonZeroLosses[nonZeroLosses.length - 1];
+    
+    // Create thresholds at meaningful points in the distribution
+    // Use logarithmic spacing between min and max
+    const logMin = Math.log10(Math.max(1000, minNonZero));
+    const logMax = Math.log10(maxNonZero);
+    
+    // Generate 5 thresholds spread across the range
+    thresholds = [
+      Math.round(Math.pow(10, logMin) / 1000) * 1000, // Near minimum (rounded to nearest 1000)
+      Math.round(Math.pow(10, logMin + (logMax - logMin) * 0.25) / 10000) * 10000,
+      Math.round(Math.pow(10, logMin + (logMax - logMin) * 0.5) / 10000) * 10000,
+      Math.round(Math.pow(10, logMin + (logMax - logMin) * 0.75) / 100000) * 100000,
+      Math.round(Math.pow(10, logMax * 0.95) / 100000) * 100000, // Near 95th percentile
+    ];
+    
+    // Ensure thresholds are unique and sorted
+    thresholds = [...new Set(thresholds)].sort((a, b) => a - b);
+    
+    // Ensure at least some standard thresholds are included if they're in range
+    const standardThresholds = [100000, 500000, 1000000, 5000000, 10000000];
+    for (const std of standardThresholds) {
+      if (std >= minNonZero * 0.5 && std <= maxNonZero * 1.5 && !thresholds.includes(std)) {
+        thresholds.push(std);
+      }
+    }
+    thresholds = [...new Set(thresholds)].sort((a, b) => a - b).slice(0, 6);
+    
+    console.log(`Dynamic thresholds for data range $${minNonZero.toLocaleString()} - $${maxNonZero.toLocaleString()}: ${thresholds.map(t => '$' + t.toLocaleString()).join(', ')}`);
+  } else {
+    thresholds = [10000, 50000, 100000, 500000, 1000000];
+  }
+  
   const probability_exceeds_threshold: Record<string, number> = {};
   for (const threshold of thresholds) {
     const exceedCount = losses.filter((l) => l >= threshold).length;
     probability_exceeds_threshold[threshold.toString()] = exceedCount / iterations;
   }
+  
+  console.log(`Threshold probabilities: ${thresholds.map(t => `${(t/1000).toFixed(0)}K=${(probability_exceeds_threshold[t.toString()]*100).toFixed(1)}%`).join(', ')}`);
+  
+  // Generate histogram
+  const histogram = calculateHistogram(losses, iterations);
+  const totalProbability = histogram.reduce((sum, bin) => sum + bin.probability, 0);
   
   console.log(`Compound simulation completed: EAL=$${Math.round(eal).toLocaleString()}, Multi-scenario rate: ${(multiScenarioRate * 100).toFixed(1)}%`);
   
