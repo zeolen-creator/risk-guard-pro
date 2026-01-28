@@ -164,10 +164,6 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-3">
               <RiskAlertsWidget />
-              <Badge variant="secondary" className="bg-white/20 text-white text-sm px-3 py-1 backdrop-blur-sm hidden sm:flex">
-                <Calendar className="h-4 w-4 mr-1" />
-                Next Review: {format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "MMM d")}
-              </Badge>
               <Button variant="ghost" size="icon" asChild className="text-white hover:bg-white/20">
                 <Link to="/profile">
                   <User className="h-5 w-5" />
@@ -548,17 +544,53 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-blue-500">❄️</span>
-                  <span>Ice storm season (Feb-Mar)</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-blue-500">🌊</span>
-                  <span>Spring flooding risk increasing</span>
-                </div>
-                <Button variant="ghost" size="sm" className="w-full mt-2" asChild>
-                  <Link to="/hazards">View Full Calendar →</Link>
-                </Button>
+                {(() => {
+                  const currentMonth = new Date().getMonth();
+                  const seasonalRisks: { emoji: string; text: string }[] = [];
+                  
+                  // Winter risks (Nov-Mar)
+                  if ([0, 1, 2, 10, 11].includes(currentMonth)) {
+                    if ([0, 1, 2].includes(currentMonth)) {
+                      seasonalRisks.push({ emoji: "❄️", text: "Ice storm season active" });
+                    }
+                    if ([1, 2].includes(currentMonth)) {
+                      seasonalRisks.push({ emoji: "🌊", text: "Spring flooding risk increasing" });
+                    }
+                    if ([10, 11, 0].includes(currentMonth)) {
+                      seasonalRisks.push({ emoji: "🌨️", text: "Winter storm season" });
+                    }
+                  }
+                  // Spring risks (Mar-May)
+                  if ([2, 3, 4].includes(currentMonth)) {
+                    seasonalRisks.push({ emoji: "🌊", text: "Spring flood season" });
+                  }
+                  // Summer risks (Jun-Aug)
+                  if ([5, 6, 7].includes(currentMonth)) {
+                    seasonalRisks.push({ emoji: "🔥", text: "Wildfire season" });
+                    seasonalRisks.push({ emoji: "⛈️", text: "Severe thunderstorm season" });
+                  }
+                  // Fall risks (Sep-Nov)
+                  if ([8, 9, 10].includes(currentMonth)) {
+                    seasonalRisks.push({ emoji: "🍂", text: "Hurricane/tropical storm season ending" });
+                  }
+                  
+                  if (seasonalRisks.length === 0) {
+                    return (
+                      <div className="text-center py-4">
+                        <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="text-sm text-muted-foreground">No elevated seasonal risks</p>
+                        <p className="text-xs text-muted-foreground">Check back as seasons change</p>
+                      </div>
+                    );
+                  }
+                  
+                  return seasonalRisks.slice(0, 3).map((risk, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm">
+                      <span className="text-blue-500">{risk.emoji}</span>
+                      <span>{risk.text}</span>
+                    </div>
+                  ));
+                })()}
               </CardContent>
             </Card>
           </div>
