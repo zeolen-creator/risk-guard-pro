@@ -1,14 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calculator, Brain, Edit3, Loader2, CheckCircle2, AlertTriangle, Sparkles, DollarSign, TrendingUp } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Calculator, Brain, Edit3, Loader2, CheckCircle2, AlertTriangle, 
+  Sparkles, DollarSign, TrendingUp, Settings, Eye, Info, 
+  FileText, BarChart3, Target 
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
+import { useSimulationTemplates, SimulationTemplate } from "@/hooks/useMonteCarloSimulation";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area
+} from "recharts";
 
 interface ToolResult {
   likelihood?: number;
@@ -16,6 +29,25 @@ interface ToolResult {
   source: string;
   confidence?: string;
   details?: Record<string, unknown>;
+}
+
+interface DistributionParams {
+  type: string;
+  min: number;
+  mode: number;
+  max: number;
+}
+
+interface MCResults {
+  eal_amount: number;
+  percentile_10: number;
+  percentile_50: number;
+  percentile_90: number;
+  var_95: number;
+  probability_exceeds_threshold: Record<string, number>;
+  execution_time_ms?: number;
+  iterations?: number;
+  data_source?: string;
 }
 
 interface MultiToolAssessmentPanelProps {
@@ -27,6 +59,7 @@ interface MultiToolAssessmentPanelProps {
 }
 
 type ToolStatus = "idle" | "running" | "completed" | "error";
+type MCMode = "config" | "running" | "results";
 
 export function MultiToolAssessmentPanel({
   hazardId,
@@ -36,14 +69,43 @@ export function MultiToolAssessmentPanel({
   onRecommendation,
 }: MultiToolAssessmentPanelProps) {
   const { data: profile } = useProfile();
+  const { data: templates } = useSimulationTemplates();
   
   // Tool statuses
   const [mcStatus, setMcStatus] = useState<ToolStatus>("idle");
   const [aiStatus, setAiStatus] = useState<ToolStatus>("idle");
   const [manualStatus, setManualStatus] = useState<"idle" | "provided">("idle");
+  const [mcMode, setMcMode] = useState<MCMode>("config");
+
+  // Monte Carlo configuration
+  const [iterations, setIterations] = useState<number>(100000);
+  const [selectedTemplate, setSelectedTemplate] = useState<SimulationTemplate | null>(null);
+  const [simulationProgress, setSimulationProgress] = useState<number>(0);
+
+  // Distribution parameters
+  const [freqDist, setFreqDist] = useState<DistributionParams>({
+    type: "triangular",
+    min: 0.1,
+    mode: 0.3,
+    max: 0.6,
+  });
+
+  const [directCostDist, setDirectCostDist] = useState<DistributionParams>({
+    type: "triangular",
+    min: 50000,
+    mode: 250000,
+    max: 1000000,
+  });
+
+  const [indirectCostDist, setIndirectCostDist] = useState<DistributionParams>({
+    type: "triangular",
+    min: 25000,
+    mode: 100000,
+    max: 500000,
+  });
 
   // Tool results
-  const [mcResults, setMcResults] = useState<Record<string, unknown> | null>(null);
+  const [mcResults, setMcResults] = useState<MCResults | null>(null);
   const [aiResults, setAiResults] = useState<Record<string, unknown> | null>(null);
   const [manualData, setManualData] = useState<{ likelihood: number } | null>(null);
 
@@ -53,6 +115,47 @@ export function MultiToolAssessmentPanel({
   // Active tab for detailed view
   const [activeTab, setActiveTab] = useState<string>("overview");
 
+  // Load template parameters
+  const loadTemplate = (templateId: string) => {
+    const template = templates?.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(template);
+      const params = template.default_parameters as Record<string, unknown>;
+      
+      if (params.frequency_distribution) {
+        const fd = params.frequency_distribution as DistributionParams;
+        setFreqDist({
+          type: fd.type || "triangular",
+          min: fd.min || 0.1,
+          mode: fd.mode || 0.3,
+          max: fd.max || 0.6,
+        });
+      }
+      
+      if (params.direct_cost_distribution) {
+        const dcd = params.direct_cost_distribution as DistributionParams;
+        setDirectCostDist({
+          type: dcd.type || "triangular",
+          min: dcd.min || 50000,
+          mode: dcd.mode || 250000,
+          max: dcd.max || 1000000,
+        });
+      }
+      
+      if (params.indirect_cost_distribution) {
+        const icd = params.indirect_cost_distribution as DistributionParams;
+        setIndirectCostDist({
+          type: icd.type || "triangular",
+          min: icd.min || 25000,
+          mode: icd.mode || 100000,
+          max: icd.max || 500000,
+        });
+      }
+      
+      toast.success(`Loaded template: ${template.template_name}`);
+    }
+  };
+
   // Run Monte Carlo Simulation
   const handleRunMonteCarlo = async () => {
     if (!profile?.org_id) {
@@ -61,44 +164,79 @@ export function MultiToolAssessmentPanel({
     }
 
     setMcStatus("running");
+    setMcMode("running");
+    setSimulationProgress(0);
+
+    // Simulate progress updates
+    const progressInterval = setInterval(() => {
+      setSimulationProgress(prev => Math.min(prev + 15, 90));
+    }, 300);
+
     try {
       const { data, error } = await supabase.functions.invoke("monte-carlo", {
         body: {
           action: "run",
           hazard_id: hazardId,
           assessment_id: assessmentId,
-          iterations: 10000,
+          template_id: selectedTemplate?.id,
+          iterations,
           time_horizon_years: 1,
-          frequency_distribution: { type: "triangular", min: 0.05, mode: 0.2, max: 0.5 },
-          direct_cost_distribution: { type: "lognormal", mean: 100000, std: 50000 },
-          indirect_cost_distribution: { type: "lognormal", mean: 50000, std: 25000 },
+          frequency_distribution: {
+            type: freqDist.type,
+            min: freqDist.min,
+            mode: freqDist.mode,
+            max: freqDist.max,
+          },
+          direct_cost_distribution: {
+            type: directCostDist.type,
+            min: directCostDist.min,
+            mode: directCostDist.mode,
+            max: directCostDist.max,
+          },
+          indirect_cost_distribution: {
+            type: indirectCostDist.type,
+            min: indirectCostDist.min,
+            mode: indirectCostDist.mode,
+            max: indirectCostDist.max,
+          },
         },
       });
 
+      clearInterval(progressInterval);
+      setSimulationProgress(100);
+
       if (error) throw error;
 
-      setMcResults(data.results);
+      setMcResults({
+        ...data.results,
+        execution_time_ms: data.execution_time_ms,
+        iterations,
+        data_source: selectedTemplate ? "template" : "manual",
+      });
       setMcStatus("completed");
+      setMcMode("results");
 
-      // Convert EAL to likelihood score (1-6 scale)
-      const ealAmount = data.results?.eal_amount || 0;
-      let suggestedLikelihood = 3;
-      if (ealAmount < 10000) suggestedLikelihood = 1;
-      else if (ealAmount < 50000) suggestedLikelihood = 2;
-      else if (ealAmount < 100000) suggestedLikelihood = 3;
-      else if (ealAmount < 250000) suggestedLikelihood = 4;
-      else if (ealAmount < 500000) suggestedLikelihood = 5;
-      else suggestedLikelihood = 6;
+      toast.success(`Simulation complete! EAL: $${(data.results?.eal_amount || 0).toLocaleString()}`);
 
-      toast.success(`Simulation complete! EAL: $${ealAmount.toLocaleString()}`);
-
-      return { likelihood: suggestedLikelihood, source: "monte_carlo" };
+      return { likelihood: mapEalToLikelihood(data.results?.eal_amount || 0), source: "monte_carlo" };
     } catch (error) {
+      clearInterval(progressInterval);
       setMcStatus("error");
+      setMcMode("config");
       toast.error("Simulation failed");
       console.error(error);
       return null;
     }
+  };
+
+  // Map EAL to likelihood score
+  const mapEalToLikelihood = (ealAmount: number): number => {
+    if (ealAmount < 10000) return 1;
+    if (ealAmount < 50000) return 2;
+    if (ealAmount < 100000) return 3;
+    if (ealAmount < 250000) return 4;
+    if (ealAmount < 500000) return 5;
+    return 6;
   };
 
   // Run AI Research
@@ -158,20 +296,11 @@ export function MultiToolAssessmentPanel({
     const recommendations: ToolResult[] = [];
 
     if (mcStatus === "completed" && mcResults) {
-      const ealAmount = (mcResults.eal_amount as number) || 0;
-      let likelihood = 3;
-      if (ealAmount < 10000) likelihood = 1;
-      else if (ealAmount < 50000) likelihood = 2;
-      else if (ealAmount < 100000) likelihood = 3;
-      else if (ealAmount < 250000) likelihood = 4;
-      else if (ealAmount < 500000) likelihood = 5;
-      else likelihood = 6;
-
       recommendations.push({
-        likelihood,
+        likelihood: mapEalToLikelihood(mcResults.eal_amount),
         source: "Monte Carlo",
         confidence: "high",
-        details: mcResults,
+        details: mcResults as unknown as Record<string, unknown>,
       });
     }
 
@@ -194,7 +323,6 @@ export function MultiToolAssessmentPanel({
 
     if (recommendations.length === 0) return null;
 
-    // Average the likelihood scores, weighted by confidence
     let totalWeight = 0;
     let weightedSum = 0;
     const sources: string[] = [];
@@ -224,18 +352,35 @@ export function MultiToolAssessmentPanel({
   const getStatusBadge = (status: ToolStatus | "provided") => {
     switch (status) {
       case "idle":
-        return <Badge variant="secondary">Not run</Badge>;
+        return <Badge variant="secondary">Ready</Badge>;
       case "running":
         return <Badge variant="secondary"><Loader2 className="h-3 w-3 animate-spin mr-1" />Running</Badge>;
       case "completed":
       case "provided":
-        return <Badge variant="default"><CheckCircle2 className="h-3 w-3 mr-1" />Complete</Badge>;
+        return <Badge className="bg-success text-success-foreground"><CheckCircle2 className="h-3 w-3 mr-1" />Complete</Badge>;
       case "error":
         return <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Error</Badge>;
       default:
         return null;
     }
   };
+
+  // Generate histogram data from thresholds
+  const getHistogramData = () => {
+    if (!mcResults?.probability_exceeds_threshold) return [];
+    
+    const thresholds = Object.entries(mcResults.probability_exceeds_threshold);
+    return thresholds.map(([label, probability], index) => ({
+      range: label.replace("$", ""),
+      probability: probability,
+      fill: probability > 50 ? "hsl(var(--destructive))" : probability > 25 ? "hsl(var(--warning))" : "hsl(var(--primary))",
+    }));
+  };
+
+  // Filter templates by hazard category
+  const relevantTemplates = templates?.filter(
+    t => t.hazard_category.toLowerCase().includes(hazardCategory.toLowerCase().split(" ")[0])
+  ) || [];
 
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-background">
@@ -253,143 +398,524 @@ export function MultiToolAssessmentPanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Tool Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Monte Carlo */}
-          <Card className={`transition-all ${mcStatus === "completed" ? "border-primary" : ""}`}>
-            <CardHeader className="py-2 px-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Calculator className="h-4 w-4 text-primary" />
-                  Monte Carlo
-                </CardTitle>
-                {getStatusBadge(mcStatus)}
-              </div>
-            </CardHeader>
-            <CardContent className="py-2 px-3">
-              <p className="text-xs text-muted-foreground mb-2">
-                Run 10,000 probabilistic simulations
-              </p>
-              <Button
-                size="sm"
-                variant={mcStatus === "completed" ? "outline" : "default"}
-                onClick={handleRunMonteCarlo}
-                disabled={mcStatus === "running"}
-                className="w-full"
-              >
-                {mcStatus === "running" ? (
-                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Running...</>
-                ) : mcStatus === "completed" ? (
-                  <><CheckCircle2 className="h-4 w-4 mr-1" />Re-run</>
-                ) : (
-                  "Run Simulation"
-                )}
-              </Button>
-              {mcResults && (
-                <div className="mt-2 p-2 bg-muted/50 rounded text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">EAL:</span>
-                    <span className="font-medium">{formatCurrency(mcResults.eal_amount as number)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">VaR 95%:</span>
-                    <span className="font-medium">{formatCurrency(mcResults.var_95 as number)}</span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="monte-carlo" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="monte-carlo" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              <span className="hidden sm:inline">Monte Carlo</span>
+              {mcStatus === "completed" && <CheckCircle2 className="h-3 w-3 text-success" />}
+            </TabsTrigger>
+            <TabsTrigger value="ai-research" className="flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline">AI Research</span>
+              {aiStatus === "completed" && <CheckCircle2 className="h-3 w-3 text-success" />}
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="flex items-center gap-2">
+              <Edit3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Manual</span>
+              {manualStatus === "provided" && <CheckCircle2 className="h-3 w-3 text-success" />}
+            </TabsTrigger>
+          </TabsList>
 
-          {/* AI Research */}
-          <Card className={`transition-all ${aiStatus === "completed" ? "border-primary" : ""}`}>
-            <CardHeader className="py-2 px-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-accent-foreground" />
-                  AI Research
-                </CardTitle>
-                {getStatusBadge(aiStatus)}
-              </div>
-            </CardHeader>
-            <CardContent className="py-2 px-3">
-              <p className="text-xs text-muted-foreground mb-2">
-                Evidence-based analysis with sources
-              </p>
-              <Button
-                size="sm"
-                variant={aiStatus === "completed" ? "outline" : "default"}
-                onClick={handleRunAIResearch}
-                disabled={aiStatus === "running"}
-                className="w-full"
-              >
-                {aiStatus === "running" ? (
-                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Researching...</>
-                ) : aiStatus === "completed" ? (
-                  <><CheckCircle2 className="h-4 w-4 mr-1" />Re-run</>
-                ) : (
-                  "Run Research"
-                )}
-              </Button>
-              {aiResults && (
-                <div className="mt-2 p-2 bg-muted/50 rounded text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Suggested:</span>
-                    <span className="font-medium">{aiResults.suggested_value as number}/6</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Confidence:</span>
-                    <span className="font-medium">{Math.round((aiResults.confidence_level as number) * 100)}%</span>
-                  </div>
+          {/* MONTE CARLO TAB */}
+          <TabsContent value="monte-carlo" className="space-y-4 mt-4">
+            <Card className={`border-2 transition-all ${mcStatus === "completed" ? "border-success bg-success/10" : "hover:border-primary/50"}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-primary" />
+                    Monte Carlo Simulation
+                  </CardTitle>
+                  {getStatusBadge(mcStatus)}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <CardDescription className="text-xs">
+                  Probabilistic risk analysis with confidence intervals
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* CONFIGURATION MODE */}
+                {mcMode === "config" && (
+                  <div className="space-y-4">
+                    {/* Template Selection */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Load Template
+                      </Label>
+                      <Select onValueChange={loadTemplate}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Start from scratch or select a template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scratch">Start from scratch</SelectItem>
+                          {templates?.map(t => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.template_name} - {t.hazard_name || t.hazard_category}
+                              {t.region && ` (${t.region})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-          {/* Manual Entry */}
-          <Card className={`transition-all ${manualStatus === "provided" ? "border-primary" : ""}`}>
-            <CardHeader className="py-2 px-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Edit3 className="h-4 w-4 text-success" />
-                  Manual Entry
-                </CardTitle>
-                {getStatusBadge(manualStatus)}
-              </div>
-            </CardHeader>
-            <CardContent className="py-2 px-3">
-              <p className="text-xs text-muted-foreground mb-2">
-                Your expert judgment (1-6 scale)
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  max={6}
-                  placeholder="1-6"
-                  value={manualLikelihood}
-                  onChange={(e) => setManualLikelihood(e.target.value)}
-                  className="h-8 text-sm"
-                />
+                    {/* Iterations Selection */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center justify-between">
+                        <span>Iterations</span>
+                        <Badge variant="secondary">{iterations.toLocaleString()}</Badge>
+                      </Label>
+                      <Select 
+                        value={iterations.toString()} 
+                        onValueChange={(v) => setIterations(parseInt(v))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10000">10,000 (Fast - ~5 sec)</SelectItem>
+                          <SelectItem value="50000">50,000 (Standard - ~10 sec)</SelectItem>
+                          <SelectItem value="100000">100,000 (High precision - ~15 sec)</SelectItem>
+                          <SelectItem value="500000">500,000 (Very high - ~30 sec)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Frequency Distribution */}
+                    <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <Target className="h-4 w-4 text-primary" />
+                        Frequency Distribution (events per year)
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Minimum</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={freqDist.min}
+                            onChange={(e) => setFreqDist({...freqDist, min: parseFloat(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Most Likely</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={freqDist.mode}
+                            onChange={(e) => setFreqDist({...freqDist, mode: parseFloat(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Maximum</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={freqDist.max}
+                            onChange={(e) => setFreqDist({...freqDist, max: parseFloat(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Range: {freqDist.min} to {freqDist.max} events/year (triangular distribution)
+                      </p>
+                    </div>
+
+                    {/* Direct Cost Distribution */}
+                    <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <DollarSign className="h-4 w-4 text-primary" />
+                        Direct Cost per Event ($)
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Minimum</Label>
+                          <Input
+                            type="number"
+                            value={directCostDist.min}
+                            onChange={(e) => setDirectCostDist({...directCostDist, min: parseInt(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Most Likely</Label>
+                          <Input
+                            type="number"
+                            value={directCostDist.mode}
+                            onChange={(e) => setDirectCostDist({...directCostDist, mode: parseInt(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Maximum</Label>
+                          <Input
+                            type="number"
+                            value={directCostDist.max}
+                            onChange={(e) => setDirectCostDist({...directCostDist, max: parseInt(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ${directCostDist.min.toLocaleString()} - ${directCostDist.max.toLocaleString()}
+                      </p>
+                    </div>
+
+                    {/* Indirect Cost Distribution */}
+                    <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <TrendingUp className="h-4 w-4 text-primary" />
+                        Indirect Cost per Event ($)
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Minimum</Label>
+                          <Input
+                            type="number"
+                            value={indirectCostDist.min}
+                            onChange={(e) => setIndirectCostDist({...indirectCostDist, min: parseInt(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Most Likely</Label>
+                          <Input
+                            type="number"
+                            value={indirectCostDist.mode}
+                            onChange={(e) => setIndirectCostDist({...indirectCostDist, mode: parseInt(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Maximum</Label>
+                          <Input
+                            type="number"
+                            value={indirectCostDist.max}
+                            onChange={(e) => setIndirectCostDist({...indirectCostDist, max: parseInt(e.target.value) || 0})}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ${indirectCostDist.min.toLocaleString()} - ${indirectCostDist.max.toLocaleString()}
+                      </p>
+                    </div>
+
+                    {/* Data Source Info */}
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        {selectedTemplate ? (
+                          <>
+                            <strong>Parameters from:</strong> {selectedTemplate.template_name}
+                            {selectedTemplate.source_notes && (
+                              <p className="mt-1 text-muted-foreground">
+                                Evidence: {selectedTemplate.source_notes}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <strong>Parameters:</strong> Default values (customize above)
+                            <p className="mt-1 text-muted-foreground">
+                              Select a template for evidence-based parameters
+                            </p>
+                          </>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+
+                    {/* Run Button */}
+                    <Button 
+                      onClick={handleRunMonteCarlo} 
+                      className="w-full"
+                      disabled={mcStatus === "running"}
+                    >
+                      <Calculator className="h-4 w-4 mr-2" />
+                      Run Simulation ({iterations.toLocaleString()} iterations)
+                    </Button>
+                  </div>
+                )}
+
+                {/* RUNNING MODE */}
+                {mcMode === "running" && (
+                  <div className="py-8 text-center space-y-4">
+                    <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+                    <div>
+                      <p className="font-medium">Running simulation...</p>
+                      <p className="text-sm text-muted-foreground">{iterations.toLocaleString()} iterations</p>
+                    </div>
+                    <Progress value={simulationProgress} className="w-full" />
+                  </div>
+                )}
+
+                {/* RESULTS MODE */}
+                {mcMode === "results" && mcResults && (
+                  <div className="space-y-4">
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Card className="bg-primary/10">
+                        <CardContent className="pt-4">
+                          <p className="text-xs text-muted-foreground">Expected Annual Loss</p>
+                          <p className="text-2xl font-bold text-primary">
+                            {formatCurrency(mcResults.eal_amount)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-destructive/10">
+                        <CardContent className="pt-4">
+                          <p className="text-xs text-muted-foreground">Value at Risk (95%)</p>
+                          <p className="text-2xl font-bold text-destructive">
+                            {formatCurrency(mcResults.var_95)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Worst-case scenario</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Percentiles */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <Card>
+                        <CardContent className="pt-3 pb-2">
+                          <p className="text-xs text-muted-foreground">10th Percentile</p>
+                          <p className="font-semibold">{formatCurrency(mcResults.percentile_10)}</p>
+                          <p className="text-xs text-muted-foreground">Low estimate</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-3 pb-2">
+                          <p className="text-xs text-muted-foreground">50th Percentile</p>
+                          <p className="font-semibold">{formatCurrency(mcResults.percentile_50)}</p>
+                          <p className="text-xs text-muted-foreground">Median</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-3 pb-2">
+                          <p className="text-xs text-muted-foreground">90th Percentile</p>
+                          <p className="font-semibold">{formatCurrency(mcResults.percentile_90)}</p>
+                          <p className="text-xs text-muted-foreground">High estimate</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Probability Thresholds Chart */}
+                    {mcResults.probability_exceeds_threshold && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            Probability of Exceeding Thresholds
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[200px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={getHistogramData()}>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                <XAxis 
+                                  dataKey="range" 
+                                  tick={{ fontSize: 10 }}
+                                  className="text-muted-foreground"
+                                />
+                                <YAxis 
+                                  tick={{ fontSize: 10 }} 
+                                  unit="%" 
+                                  className="text-muted-foreground"
+                                />
+                                <Tooltip 
+                                  formatter={(value: number) => [`${value}%`, "Probability"]}
+                                  contentStyle={{ 
+                                    backgroundColor: "hsl(var(--background))",
+                                    border: "1px solid hsl(var(--border))"
+                                  }}
+                                />
+                                <Bar dataKey="probability" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Simulation Info */}
+                    <Alert className="bg-success/10 border-success/30">
+                      <CheckCircle2 className="h-4 w-4 text-success" />
+                      <AlertDescription className="text-xs">
+                        <strong>Simulation complete:</strong> {mcResults.iterations?.toLocaleString()} iterations 
+                        in {((mcResults.execution_time_ms || 0) / 1000).toFixed(1)}s
+                        <br />
+                        <span className="text-muted-foreground">
+                          Method: Triangular distributions with Poisson frequency
+                        </span>
+                        <br />
+                        <span className="text-muted-foreground">
+                          Data source: {mcResults.data_source === "template" ? selectedTemplate?.template_name : "Custom parameters"}
+                        </span>
+                      </AlertDescription>
+                    </Alert>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setMcMode("config")}
+                        className="flex-1"
+                      >
+                        <Settings className="h-4 w-4 mr-1" />
+                        Adjust Parameters
+                      </Button>
+                      <Button
+                        onClick={() => onRecommendation({ 
+                          likelihood: mapEalToLikelihood(mcResults.eal_amount), 
+                          source: "Monte Carlo Simulation" 
+                        })}
+                        className="flex-1"
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Apply Score ({mapEalToLikelihood(mcResults.eal_amount)}/6)
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* AI RESEARCH TAB */}
+          <TabsContent value="ai-research" className="space-y-4 mt-4">
+            <Card className={`transition-all ${aiStatus === "completed" ? "border-success bg-success/10" : ""}`}>
+              <CardHeader className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-accent-foreground" />
+                    AI Research
+                  </CardTitle>
+                  {getStatusBadge(aiStatus)}
+                </div>
+              </CardHeader>
+              <CardContent className="py-3 px-4">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Evidence-based analysis with sources and confidence levels
+                </p>
                 <Button
-                  size="sm"
-                  variant={manualStatus === "provided" ? "outline" : "default"}
-                  onClick={handleManualEntry}
-                  className="shrink-0"
+                  variant={aiStatus === "completed" ? "outline" : "default"}
+                  onClick={handleRunAIResearch}
+                  disabled={aiStatus === "running"}
+                  className="w-full"
                 >
-                  {manualStatus === "provided" ? "Update" : "Set"}
+                  {aiStatus === "running" ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Researching...</>
+                  ) : aiStatus === "completed" ? (
+                    <><CheckCircle2 className="h-4 w-4 mr-1" />Re-run Research</>
+                  ) : (
+                    "Run AI Research"
+                  )}
                 </Button>
-              </div>
-              {manualData && (
-                <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Your Score:</span>
-                    <span className="font-medium">{manualData.likelihood}/6</span>
+                {aiResults && (
+                  <div className="mt-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Card>
+                        <CardContent className="pt-3">
+                          <p className="text-xs text-muted-foreground">Suggested Score</p>
+                          <p className="text-xl font-bold text-primary">{aiResults.suggested_value as number}/6</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-3">
+                          <p className="text-xs text-muted-foreground">Confidence</p>
+                          <p className="text-xl font-bold">{Math.round((aiResults.confidence_level as number) * 100)}%</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    {aiResults.explanation && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Analysis:</p>
+                        <p className="text-sm">{aiResults.explanation as string}</p>
+                      </div>
+                    )}
+                    {(aiResults.sources as unknown[])?.length > 0 && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground">
+                          Sources: {(aiResults.sources as unknown[]).length} references found
+                        </p>
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => onRecommendation({ 
+                        likelihood: aiResults.suggested_value as number, 
+                        source: "AI Research" 
+                      })}
+                      className="w-full"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Apply Score ({aiResults.suggested_value as number}/6)
+                    </Button>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* MANUAL TAB */}
+          <TabsContent value="manual" className="space-y-4 mt-4">
+            <Card className={`transition-all ${manualStatus === "provided" ? "border-success bg-success/10" : ""}`}>
+              <CardHeader className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Edit3 className="h-4 w-4 text-success" />
+                    Manual Entry
+                  </CardTitle>
+                  {getStatusBadge(manualStatus)}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </CardHeader>
+              <CardContent className="py-3 px-4">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Your expert judgment based on experience (1-6 scale)
+                </p>
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={6}
+                    placeholder="Enter score 1-6"
+                    value={manualLikelihood}
+                    onChange={(e) => setManualLikelihood(e.target.value)}
+                    className="h-10"
+                  />
+                  <Button
+                    variant={manualStatus === "provided" ? "outline" : "default"}
+                    onClick={handleManualEntry}
+                    className="shrink-0"
+                  >
+                    {manualStatus === "provided" ? "Update" : "Set Score"}
+                  </Button>
+                </div>
+                {manualData && (
+                  <div className="space-y-3">
+                    <Card>
+                      <CardContent className="pt-3">
+                        <p className="text-xs text-muted-foreground">Your Score</p>
+                        <p className="text-xl font-bold text-success">{manualData.likelihood}/6</p>
+                      </CardContent>
+                    </Card>
+                    <Button
+                      onClick={() => onRecommendation({ 
+                        likelihood: manualData.likelihood, 
+                        source: "Manual Entry" 
+                      })}
+                      className="w-full"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Apply Score ({manualData.likelihood}/6)
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Synthesized Recommendation */}
         {recommendation && hasAnyResults && (
@@ -399,10 +925,10 @@ export function MultiToolAssessmentPanel({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
-                    <span className="font-semibold">Recommended Probability Score</span>
+                    <span className="font-semibold">Synthesized Recommendation</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Based on: {recommendation.source}
+                    Combined from: {recommendation.source}
                   </p>
                 </div>
                 <div className="text-right">
@@ -412,87 +938,16 @@ export function MultiToolAssessmentPanel({
                   </Badge>
                 </div>
               </div>
-              <div className="flex gap-2 mt-4">
-                <Button
-                  onClick={() => onRecommendation({ 
-                    likelihood: recommendation.likelihood!, 
-                    source: recommendation.source 
-                  })}
-                  className="flex-1"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Apply Recommendation
-                </Button>
-                <Button variant="outline" onClick={() => setActiveTab("details")}>
-                  View Details
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Detailed Results Tab (collapsible) */}
-        {hasAnyResults && activeTab === "details" && (
-          <Card>
-            <CardHeader className="py-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Detailed Results</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setActiveTab("overview")}>
-                  Hide Details
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {mcResults && (
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
-                    <Calculator className="h-4 w-4 text-primary" />
-                    Monte Carlo Results
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                    <div>
-                      <p className="text-muted-foreground">Expected Annual Loss</p>
-                      <p className="font-semibold flex items-center gap-1">
-                        <DollarSign className="h-3 w-3" />
-                        {formatCurrency(mcResults.eal_amount as number)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">10th Percentile</p>
-                      <p className="font-medium">{formatCurrency(mcResults.percentile_10 as number)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Median (50th)</p>
-                      <p className="font-medium">{formatCurrency(mcResults.percentile_50 as number)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">VaR 95%</p>
-                      <p className="font-semibold flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3 text-destructive" />
-                        {formatCurrency(mcResults.var_95 as number)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {aiResults && (
-                <div className="p-3 bg-accent/20 rounded-lg">
-                  <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
-                    <Brain className="h-4 w-4 text-accent-foreground" />
-                    AI Research Results
-                  </h4>
-                  <div className="text-xs space-y-2">
-                    <p className="text-muted-foreground line-clamp-3">
-                      {aiResults.explanation as string}
-                    </p>
-                    {(aiResults.sources as unknown[])?.length > 0 && (
-                      <p className="text-muted-foreground">
-                        Sources: {(aiResults.sources as unknown[]).length} references found
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+              <Button
+                onClick={() => onRecommendation({ 
+                  likelihood: recommendation.likelihood!, 
+                  source: recommendation.source 
+                })}
+                className="w-full mt-4"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Apply Combined Recommendation
+              </Button>
             </CardContent>
           </Card>
         )}
