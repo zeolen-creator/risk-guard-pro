@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
           completed_at: new Date().toISOString(),
           execution_time_ms: executionTime,
           created_by: userId,
-          data_source: "user_input",
+          data_source: params.template_id ? "template" : "manual",
         })
         .select()
         .single();
