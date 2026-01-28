@@ -126,6 +126,61 @@ function hashString(str: string): string {
   return Math.abs(hash).toString(36);
 }
 
+// Extract image URL from RSS item or scrape OpenGraph from article
+async function extractImageUrl(item: any, articleUrl: string): Promise<string | null> {
+  // 1. Try RSS feed enclosure (common for media)
+  if (item.enclosure?.url && item.enclosure.type?.startsWith('image/')) {
+    return item.enclosure.url;
+  }
+  
+  // 2. Try media:content tag (common in news RSS)
+  if (item.mediaContent) {
+    return item.mediaContent;
+  }
+  
+  // 3. Try media:thumbnail tag
+  if (item.mediaThumbnail) {
+    return item.mediaThumbnail;
+  }
+  
+  // 4. Scrape OpenGraph from article page (with timeout and error handling)
+  if (!articleUrl) return null;
+  
+  try {
+    const response = await fetch(articleUrl, {
+      headers: {
+        'User-Agent': 'HIRA-Pro/1.0 Regional Risk Intelligence Bot',
+        'Accept': 'text/html',
+      },
+      signal: AbortSignal.timeout(5000), // 5 second timeout for OG scraping
+    });
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    
+    // Extract og:image meta tag
+    const ogImageMatch = html.match(/<meta\s+(?:property|name)=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+                        html.match(/<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']og:image["']/i);
+    if (ogImageMatch?.[1]) {
+      return ogImageMatch[1];
+    }
+    
+    // Fallback: twitter:image
+    const twitterImageMatch = html.match(/<meta\s+(?:property|name)=["']twitter:image["']\s+content=["']([^"']+)["']/i) ||
+                             html.match(/<meta\s+content=["']([^"']+)["']\s+(?:property|name)=["']twitter:image["']/i);
+    if (twitterImageMatch?.[1]) {
+      return twitterImageMatch[1];
+    }
+    
+    return null;
+  } catch (error) {
+    // Silent fail - OG scraping is optional
+    console.warn(`Failed to extract OG image from ${articleUrl}:`, error instanceof Error ? error.message : 'Unknown error');
+    return null;
+  }
+}
+
 // Parse RSS XML manually (simple approach without external XML parser)
 function parseRSSItems(xmlText: string, sourceName: string): any[] {
   const items: any[] = [];
@@ -144,10 +199,35 @@ function parseRSSItems(xmlText: string, sourceName: string): any[] {
       return "";
     };
 
+    // Extract enclosure URL (for media attachments)
+    const getEnclosure = (): { url?: string; type?: string } | null => {
+      const enclosureMatch = itemContent.match(/<enclosure\s+[^>]*url=["']([^"']+)["'][^>]*type=["']([^"']+)["'][^>]*\/?>/i) ||
+                            itemContent.match(/<enclosure\s+[^>]*type=["']([^"']+)["'][^>]*url=["']([^"']+)["'][^>]*\/?>/i);
+      if (enclosureMatch) {
+        return { url: enclosureMatch[1], type: enclosureMatch[2] };
+      }
+      return null;
+    };
+    
+    // Extract media:content or media:thumbnail
+    const getMediaUrl = (): string | null => {
+      // media:content
+      const mediaContentMatch = itemContent.match(/<media:content[^>]*url=["']([^"']+)["'][^>]*\/?>/i);
+      if (mediaContentMatch?.[1]) return mediaContentMatch[1];
+      
+      // media:thumbnail
+      const mediaThumbnailMatch = itemContent.match(/<media:thumbnail[^>]*url=["']([^"']+)["'][^>]*\/?>/i);
+      if (mediaThumbnailMatch?.[1]) return mediaThumbnailMatch[1];
+      
+      return null;
+    };
+
     const title = getTagContent("title");
     const description = getTagContent("description");
     const link = getTagContent("link");
     const pubDate = getTagContent("pubDate");
+    const enclosure = getEnclosure();
+    const mediaUrl = getMediaUrl();
 
     if (title) {
       items.push({
@@ -157,6 +237,8 @@ function parseRSSItems(xmlText: string, sourceName: string): any[] {
         pubDate: pubDate || new Date().toISOString(),
         source: sourceName,
         hash: hashString(title + sourceName),
+        enclosure,
+        mediaContent: mediaUrl,
       });
     }
   }
@@ -463,19 +545,39 @@ Deno.serve(async (req) => {
           .sort((a, b) => b.relevance_score - a.relevance_score)
           .slice(0, 30); // Top 30 most relevant
 
-        feedData.news_items = relevantNews.map((item) => ({
-          id: item.hash,
-          title: item.title,
-          description: item.description,
-          url: item.link,
-          source: item.source,
-          published_at: item.pubDate,
-          relevance_score: item.relevance_score,
-          category: item.category,
-          severity: item.severity,
-        }));
+        // 4. Extract images for top news items (async, with concurrency limit)
+        console.log(`Extracting images for ${relevantNews.length} news items...`);
+        
+        // Process in batches of 5 to avoid overwhelming servers
+        const batchSize = 5;
+        const newsWithImages: any[] = [];
+        
+        for (let i = 0; i < relevantNews.length; i += batchSize) {
+          const batch = relevantNews.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map(async (item) => {
+              const imageUrl = await extractImageUrl(item, item.link);
+              return {
+                id: item.hash,
+                title: item.title,
+                description: item.description,
+                url: item.link,
+                source: item.source,
+                published_at: item.pubDate,
+                relevance_score: item.relevance_score,
+                category: item.category,
+                severity: item.severity,
+                image_url: imageUrl,
+              };
+            })
+          );
+          newsWithImages.push(...batchResults);
+        }
+        
+        feedData.news_items = newsWithImages;
 
-        console.log(`Filtered to ${feedData.news_items.length} relevant news items`);
+        const imagesFound = newsWithImages.filter(item => item.image_url).length;
+        console.log(`Filtered to ${feedData.news_items.length} relevant news items (${imagesFound} with images)`);
 
         // 4. Store in database (upsert)
         const { error: upsertError } = await supabase

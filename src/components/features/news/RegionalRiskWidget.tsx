@@ -31,6 +31,7 @@ import { useNewsFeed, useNewsDismissals, useDismissNewsItem, useRefreshNewsFeed,
 import { useHazards } from "@/hooks/useHazards";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { NewsImage } from "./NewsImage";
 
 type Category = "weather" | "security" | "health" | "infrastructure" | "financial" | "general";
 
@@ -84,23 +85,28 @@ function NewsCard({ item, onDismiss, isDismissing, matchedHazards, category }: N
   const link = isWeather ? (item as WeatherAlert).link : (item as NewsItem).url;
   const date = isWeather ? (item as WeatherAlert).pubDate : (item as NewsItem).published_at;
   const severity = item.severity;
+  const imageUrl = !isWeather ? (item as NewsItem).image_url : null;
 
   const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.general;
-  const Icon = config.icon;
 
   return (
-    <div className={`p-4 rounded-lg ${config.bgColor} ${getSeverityStyles(severity)} transition-all hover:shadow-md`}>
-      <div className="flex items-start gap-3">
-        <div className={`mt-0.5 ${config.color}`}>
-          <Icon className="h-5 w-5" />
-        </div>
+    <div className={`p-3 rounded-lg ${config.bgColor} ${getSeverityStyles(severity)} transition-all hover:shadow-md`}>
+      <div className="flex gap-3">
+        {/* Thumbnail Image */}
+        <NewsImage 
+          imageUrl={imageUrl} 
+          category={category} 
+          title={title}
+        />
+        
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <h4 className="text-sm font-semibold line-clamp-2 text-foreground">{title}</h4>
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="text-sm font-semibold line-clamp-2 text-foreground leading-tight">{title}</h4>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 flex-shrink-0 -mt-1 -mr-1 hover:bg-destructive/10"
+              className="h-6 w-6 flex-shrink-0 -mt-0.5 -mr-1 hover:bg-destructive/10"
               onClick={onDismiss}
               disabled={isDismissing}
             >
@@ -111,9 +117,10 @@ function NewsCard({ item, onDismiss, isDismissing, matchedHazards, category }: N
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{description}</p>
           
-          <div className="flex items-center gap-2 flex-wrap mb-2">
+          <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{description}</p>
+          
+          <div className="flex items-center gap-2 flex-wrap mt-2">
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {formatDistanceToNow(new Date(date), { addSuffix: true })}
@@ -123,16 +130,15 @@ function NewsCard({ item, onDismiss, isDismissing, matchedHazards, category }: N
           </div>
 
           {matchedHazards.length > 0 && (
-            <div className="flex items-center gap-1 mt-2 flex-wrap">
+            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
               <TrendingUp className="h-3 w-3 text-primary" />
-              <span className="text-xs text-primary font-medium">Related:</span>
               {matchedHazards.slice(0, 2).map((hazard, idx) => (
-                <Badge key={idx} variant="outline" className="text-xs py-0 border-primary/30">
+                <Badge key={idx} variant="outline" className="text-xs py-0 h-5 border-primary/30">
                   {hazard}
                 </Badge>
               ))}
               {matchedHazards.length > 2 && (
-                <Badge variant="outline" className="text-xs py-0">
+                <Badge variant="outline" className="text-xs py-0 h-5">
                   +{matchedHazards.length - 2}
                 </Badge>
               )}
@@ -140,10 +146,10 @@ function NewsCard({ item, onDismiss, isDismissing, matchedHazards, category }: N
           )}
 
           {link && (
-            <div className="mt-3">
-              <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+            <div className="mt-2">
+              <Button variant="link" size="sm" className="h-5 p-0 text-xs text-primary" asChild>
                 <a href={link} target="_blank" rel="noopener noreferrer">
-                  Read Full Article <ExternalLink className="ml-1 h-3 w-3" />
+                  Read more <ExternalLink className="ml-1 h-3 w-3" />
                 </a>
               </Button>
             </div>
@@ -153,7 +159,6 @@ function NewsCard({ item, onDismiss, isDismissing, matchedHazards, category }: N
     </div>
   );
 }
-
 interface CategorySectionProps {
   items: (WeatherAlert | NewsItem)[];
   category: Category;
