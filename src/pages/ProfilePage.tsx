@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { RegionalRiskSettings } from "@/components/settings/RegionalRiskSettings";
 import {
   Shield,
   ArrowLeft,
@@ -215,6 +216,9 @@ export default function ProfilePage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Regional Risk Intelligence Settings */}
+        <RegionalRiskSettings />
 
         {/* Sign Out */}
         <Separator className="my-6" />
