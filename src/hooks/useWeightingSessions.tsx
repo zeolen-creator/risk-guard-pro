@@ -65,7 +65,7 @@ export function useCreateWeightingSession() {
         .insert({
           org_id: profile.org_id,
           created_by: profile.id,
-          status: "draft",
+          status: "in_progress",
           version: 1,
         })
         .select()
