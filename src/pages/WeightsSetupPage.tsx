@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useConsequences } from "@/hooks/useHazards";
 import { useSaveConsequenceWeights, useConsequenceWeightsMap } from "@/hooks/useConsequenceWeights";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -31,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, AlertCircle, Loader2, Check, Scale, Lock, Edit, Save, Eye } from "lucide-react";
+import { Shield, AlertCircle, Loader2, Check, Scale, Lock, Edit, Save, Eye, Wand2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 export default function WeightsSetupPage() {
@@ -312,6 +311,33 @@ export default function WeightsSetupPage() {
             )}
           </CardFooter>
         </Card>
+
+        {/* Advanced Weighting Wizard Link */}
+        {isAdmin && !isFirstTimeSetup && (
+          <Card className="mt-6 border-primary/20 bg-primary/5">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Wand2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Advanced Weighting Methodology</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Use our 6-layer AI-powered wizard for scientifically justified weights
+                    </p>
+                  </div>
+                </div>
+                <Button asChild>
+                  <Link to="/settings/weights/sessions">
+                    Open Wizard
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {!isAdmin && !isFirstTimeSetup && (
           <p className="text-center text-sm text-muted-foreground mt-4">

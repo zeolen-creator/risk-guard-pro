@@ -9,11 +9,11 @@ import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface Layer3ScenarioValidatorProps {
   sessionId: string;
-  organizationId: string;
-  industryType: string;
   ahpWeights: Record<string, number>;
-  onComplete: () => void;
-  onBack: () => void;
+  organizationId?: string;
+  industryType?: string;
+  onComplete?: () => void;
+  onBack?: () => void;
 }
 
 interface ScenarioValidation {
@@ -64,9 +64,9 @@ function getMisalignmentMagnitude(userRating: string, aiCategory: string): numbe
 
 export function Layer3ScenarioValidator({
   sessionId,
-  organizationId,
-  industryType,
   ahpWeights,
+  organizationId = '',
+  industryType = 'healthcare',
   onComplete,
   onBack,
 }: Layer3ScenarioValidatorProps) {
@@ -209,7 +209,7 @@ export function Layer3ScenarioValidator({
         description: `${alignedCount}/${scenarios.length} scenarios aligned with your weights`,
       });
 
-      onComplete();
+      onComplete?.();
     } catch (error) {
       console.error('Error saving validations:', error);
       toast({
@@ -294,7 +294,7 @@ export function Layer3ScenarioValidator({
 
       {/* Actions */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={!onBack}>
           Back to AHP
         </Button>
         <div className="flex gap-2">

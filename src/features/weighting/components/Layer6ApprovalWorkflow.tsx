@@ -10,11 +10,11 @@ import { Loader2, CheckCircle2, Clock, UserCheck, History, AlertTriangle } from 
 
 interface Layer6ApprovalWorkflowProps {
   sessionId: string;
-  organizationId: string;
-  userId: string;
-  weights: Record<string, number>;
-  onComplete: () => void;
-  onBack: () => void;
+  weights?: Record<string, number>;
+  organizationId?: string;
+  userId?: string;
+  onComplete?: () => void;
+  onBack?: () => void;
 }
 
 export function Layer6ApprovalWorkflow({

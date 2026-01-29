@@ -9,11 +9,12 @@ import { Loader2, Scale, FileText, AlertTriangle, CheckCircle2, ExternalLink } f
 
 interface Layer4RegulatoryResearchProps {
   sessionId: string;
-  organizationId: string;
-  industryType: string;
-  jurisdiction: string;
-  onComplete: () => void;
-  onBack: () => void;
+  industryType?: string;
+  jurisdiction?: string;
+  ahpWeights?: Record<string, number>;
+  organizationId?: string;
+  onComplete?: () => void;
+  onBack?: () => void;
 }
 
 interface RegulatoryResult {
@@ -33,9 +34,10 @@ interface MissionAnalysis {
 
 export function Layer4RegulatoryResearch({
   sessionId,
+  industryType = 'general',
+  jurisdiction = 'Canada',
+  ahpWeights = {},
   organizationId,
-  industryType,
-  jurisdiction,
   onComplete,
   onBack,
 }: Layer4RegulatoryResearchProps) {
@@ -149,7 +151,7 @@ export function Layer4RegulatoryResearch({
         })
         .eq('id', sessionId);
 
-      onComplete();
+      onComplete?.();
     } catch (error) {
       console.error('Error saving:', error);
       toast({
@@ -330,7 +332,7 @@ export function Layer4RegulatoryResearch({
 
       {/* Actions */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={!onBack}>
           Back to Scenarios
         </Button>
         <Button
