@@ -965,6 +965,47 @@ export type Database = {
           },
         ]
       }
+      hazard_info_requests: {
+        Row: {
+          created_at: string | null
+          hazard_category: string | null
+          hazard_name: string
+          id: string
+          notes: string | null
+          org_id: string
+          requested_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          hazard_category?: string | null
+          hazard_name: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          requested_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          hazard_category?: string | null
+          hazard_name?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          requested_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hazard_info_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hazard_information_sheets: {
         Row: {
           common_causes: string[] | null

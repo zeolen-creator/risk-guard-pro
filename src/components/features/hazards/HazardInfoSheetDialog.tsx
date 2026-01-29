@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +19,11 @@ import {
   BookOpen,
   Download,
   Edit,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { useHazardInfoSheet, ExternalResource } from "@/hooks/useHazardInfoSheets";
+import { useRequestHazardInfoSheet } from "@/hooks/useHazardInfoRequests";
 
 interface HazardInfoSheetDialogProps {
   hazardName: string | null;
@@ -35,6 +37,13 @@ export function HazardInfoSheetDialog({
   onOpenChange,
 }: HazardInfoSheetDialogProps) {
   const { data: infoSheet, isLoading } = useHazardInfoSheet(hazardName);
+  const requestInfoSheet = useRequestHazardInfoSheet();
+
+  const handleRequestInfoSheet = () => {
+    if (hazardName) {
+      requestInfoSheet.mutate({ hazardName });
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,9 +167,21 @@ export function HazardInfoSheetDialog({
             <div className="text-center py-12">
               <BookOpen className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
               <p className="text-muted-foreground mb-2">No information sheet available</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-4">
                 This hazard doesn't have detailed information yet.
               </p>
+              <Button 
+                variant="outline" 
+                onClick={handleRequestInfoSheet}
+                disabled={requestInfoSheet.isPending}
+              >
+                {requestInfoSheet.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Request Info Sheet
+              </Button>
             </div>
           )}
         </ScrollArea>
