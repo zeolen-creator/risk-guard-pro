@@ -507,6 +507,39 @@ export type Database = {
           },
         ]
       }
+      consequence_types: {
+        Row: {
+          category_number: number
+          created_at: string | null
+          description: string
+          examples: string[] | null
+          id: string
+          name: string
+          short_name: string
+          typical_weight_ranges: Json | null
+        }
+        Insert: {
+          category_number: number
+          created_at?: string | null
+          description: string
+          examples?: string[] | null
+          id?: string
+          name: string
+          short_name: string
+          typical_weight_ranges?: Json | null
+        }
+        Update: {
+          category_number?: number
+          created_at?: string | null
+          description?: string
+          examples?: string[] | null
+          id?: string
+          name?: string
+          short_name?: string
+          typical_weight_ranges?: Json | null
+        }
+        Relationships: []
+      }
       consequence_weights: {
         Row: {
           consequence_id: string
@@ -1255,6 +1288,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      industry_taxonomy: {
+        Row: {
+          created_at: string | null
+          description: string
+          expected_weight_patterns: Json | null
+          id: string
+          industry_id: string
+          name: string
+          questionnaire_adaptations: Json | null
+          sub_sectors: string[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          expected_weight_patterns?: Json | null
+          id?: string
+          industry_id: string
+          name: string
+          questionnaire_adaptations?: Json | null
+          sub_sectors?: string[] | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          expected_weight_patterns?: Json | null
+          id?: string
+          industry_id?: string
+          name?: string
+          questionnaire_adaptations?: Json | null
+          sub_sectors?: string[] | null
+        }
+        Relationships: []
       }
       industry_templates: {
         Row: {
@@ -2188,6 +2254,54 @@ export type Database = {
           },
         ]
       }
+      scenario_templates: {
+        Row: {
+          consequence_values_template: Json
+          created_at: string | null
+          customization_prompt: string | null
+          expected_risk_level: string
+          id: string
+          industry: string
+          is_active: boolean | null
+          scenario_description_template: string
+          scenario_number: number
+          scenario_title: string
+          sub_industry: string | null
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          consequence_values_template: Json
+          created_at?: string | null
+          customization_prompt?: string | null
+          expected_risk_level: string
+          id?: string
+          industry: string
+          is_active?: boolean | null
+          scenario_description_template: string
+          scenario_number: number
+          scenario_title: string
+          sub_industry?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          consequence_values_template?: Json
+          created_at?: string | null
+          customization_prompt?: string | null
+          expected_risk_level?: string
+          id?: string
+          industry?: string
+          is_active?: boolean | null
+          scenario_description_template?: string
+          scenario_number?: number
+          scenario_title?: string
+          sub_industry?: string | null
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       seasonal_patterns: {
         Row: {
           created_at: string | null
@@ -2488,11 +2602,1123 @@ export type Database = {
           },
         ]
       }
+      weighting_ahp_comparisons: {
+        Row: {
+          a_intensity: number
+          b_intensity: number
+          comparison_order: number
+          comparison_type: string
+          completed_at: string | null
+          consequence_a: string
+          consequence_b: string
+          direction: string
+          id: string
+          rating: number
+          session_id: string
+          time_spent_seconds: number | null
+        }
+        Insert: {
+          a_intensity: number
+          b_intensity: number
+          comparison_order: number
+          comparison_type: string
+          completed_at?: string | null
+          consequence_a: string
+          consequence_b: string
+          direction: string
+          id?: string
+          rating: number
+          session_id: string
+          time_spent_seconds?: number | null
+        }
+        Update: {
+          a_intensity?: number
+          b_intensity?: number
+          comparison_order?: number
+          comparison_type?: string
+          completed_at?: string | null
+          consequence_a?: string
+          consequence_b?: string
+          direction?: string
+          id?: string
+          rating?: number
+          session_id?: string
+          time_spent_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_ahp_comparisons_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_ahp_matrix: {
+        Row: {
+          calculated_at: string | null
+          consistency_ratio: number
+          eigenvalues: Json
+          id: string
+          is_consistent: boolean
+          matrix: Json
+          normalized_weights: Json
+          raw_weights: Json
+          session_id: string
+        }
+        Insert: {
+          calculated_at?: string | null
+          consistency_ratio: number
+          eigenvalues: Json
+          id?: string
+          is_consistent: boolean
+          matrix: Json
+          normalized_weights: Json
+          raw_weights: Json
+          session_id: string
+        }
+        Update: {
+          calculated_at?: string | null
+          consistency_ratio?: number
+          eigenvalues?: Json
+          id?: string
+          is_consistent?: boolean
+          matrix?: Json
+          normalized_weights?: Json
+          raw_weights?: Json
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_ahp_matrix_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_ai_synthesis: {
+        Row: {
+          ai_model_used: string
+          ai_prompt_tokens: number
+          ai_response_tokens: number
+          ai_total_cost_usd: number
+          all_checks_passed: boolean
+          consistency_checks: Json
+          id: string
+          justification_report_detailed: string
+          justification_report_executive: string
+          justification_report_technical: string
+          previous_weights: Json | null
+          processing_duration_seconds: number | null
+          recommended_weights: Json
+          sensitivity_preview: Json | null
+          session_id: string
+          source_weights: Json
+          sources_used: Json
+          synthesized_at: string | null
+          weight_changes: Json
+        }
+        Insert: {
+          ai_model_used: string
+          ai_prompt_tokens: number
+          ai_response_tokens: number
+          ai_total_cost_usd: number
+          all_checks_passed: boolean
+          consistency_checks: Json
+          id?: string
+          justification_report_detailed: string
+          justification_report_executive: string
+          justification_report_technical: string
+          previous_weights?: Json | null
+          processing_duration_seconds?: number | null
+          recommended_weights: Json
+          sensitivity_preview?: Json | null
+          session_id: string
+          source_weights: Json
+          sources_used: Json
+          synthesized_at?: string | null
+          weight_changes: Json
+        }
+        Update: {
+          ai_model_used?: string
+          ai_prompt_tokens?: number
+          ai_response_tokens?: number
+          ai_total_cost_usd?: number
+          all_checks_passed?: boolean
+          consistency_checks?: Json
+          id?: string
+          justification_report_detailed?: string
+          justification_report_executive?: string
+          justification_report_technical?: string
+          previous_weights?: Json | null
+          processing_duration_seconds?: number | null
+          recommended_weights?: Json
+          sensitivity_preview?: Json | null
+          session_id?: string
+          source_weights?: Json
+          sources_used?: Json
+          synthesized_at?: string | null
+          weight_changes?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_ai_synthesis_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_approvals: {
+        Row: {
+          approval_order: number | null
+          approved_at: string | null
+          approver_id: string
+          approver_role: string
+          comments: string | null
+          id: string
+          notified_at: string | null
+          reminder_sent_at: string | null
+          requested_changes: string | null
+          session_id: string
+          status: string | null
+        }
+        Insert: {
+          approval_order?: number | null
+          approved_at?: string | null
+          approver_id: string
+          approver_role: string
+          comments?: string | null
+          id?: string
+          notified_at?: string | null
+          reminder_sent_at?: string | null
+          requested_changes?: string | null
+          session_id: string
+          status?: string | null
+        }
+        Update: {
+          approval_order?: number | null
+          approved_at?: string | null
+          approver_id?: string
+          approver_role?: string
+          comments?: string | null
+          id?: string
+          notified_at?: string | null
+          reminder_sent_at?: string | null
+          requested_changes?: string | null
+          session_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_approvals_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_approvals_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_benchmarking_opt_ins: {
+        Row: {
+          consent_version: string
+          id: string
+          is_opted_in: boolean | null
+          last_consent_date: string | null
+          last_data_used_at: string | null
+          next_consent_reminder_date: string | null
+          opted_in_at: string | null
+          opted_out_at: string | null
+          org_id: string
+          share_hazard_ratings: boolean | null
+          share_industry: boolean | null
+          share_org_size: boolean | null
+          share_region_broad: boolean | null
+          share_weights: boolean | null
+          times_data_used_in_benchmarks: number | null
+        }
+        Insert: {
+          consent_version: string
+          id?: string
+          is_opted_in?: boolean | null
+          last_consent_date?: string | null
+          last_data_used_at?: string | null
+          next_consent_reminder_date?: string | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          org_id: string
+          share_hazard_ratings?: boolean | null
+          share_industry?: boolean | null
+          share_org_size?: boolean | null
+          share_region_broad?: boolean | null
+          share_weights?: boolean | null
+          times_data_used_in_benchmarks?: number | null
+        }
+        Update: {
+          consent_version?: string
+          id?: string
+          is_opted_in?: boolean | null
+          last_consent_date?: string | null
+          last_data_used_at?: string | null
+          next_consent_reminder_date?: string | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          org_id?: string
+          share_hazard_ratings?: boolean | null
+          share_industry?: boolean | null
+          share_org_size?: boolean | null
+          share_region_broad?: boolean | null
+          share_weights?: boolean | null
+          times_data_used_in_benchmarks?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_benchmarking_opt_ins_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_final_weights: {
+        Row: {
+          approval_notes: string | null
+          approved_at: string | null
+          approved_by: string | null
+          displacement_weight: number
+          economic_impact_weight: number
+          environmental_weight: number
+          fatalities_weight: number
+          id: string
+          infrastructure_weight: number
+          injuries_weight: number
+          is_active: boolean | null
+          last_reviewed_at: string | null
+          manual_adjustments: string | null
+          next_review_date: string | null
+          org_id: string
+          property_damage_weight: number
+          psychosocial_weight: number
+          reputational_weight: number
+          session_id: string
+          set_at: string | null
+          set_by: string
+          status: string | null
+          support_system_weight: number
+          version: number
+          weights_json: Json
+        }
+        Insert: {
+          approval_notes?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          displacement_weight: number
+          economic_impact_weight: number
+          environmental_weight: number
+          fatalities_weight: number
+          id?: string
+          infrastructure_weight: number
+          injuries_weight: number
+          is_active?: boolean | null
+          last_reviewed_at?: string | null
+          manual_adjustments?: string | null
+          next_review_date?: string | null
+          org_id: string
+          property_damage_weight: number
+          psychosocial_weight: number
+          reputational_weight: number
+          session_id: string
+          set_at?: string | null
+          set_by: string
+          status?: string | null
+          support_system_weight: number
+          version: number
+          weights_json: Json
+        }
+        Update: {
+          approval_notes?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          displacement_weight?: number
+          economic_impact_weight?: number
+          environmental_weight?: number
+          fatalities_weight?: number
+          id?: string
+          infrastructure_weight?: number
+          injuries_weight?: number
+          is_active?: boolean | null
+          last_reviewed_at?: string | null
+          manual_adjustments?: string | null
+          next_review_date?: string | null
+          org_id?: string
+          property_damage_weight?: number
+          psychosocial_weight?: number
+          reputational_weight?: number
+          session_id?: string
+          set_at?: string | null
+          set_by?: string
+          status?: string | null
+          support_system_weight?: number
+          version?: number
+          weights_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_final_weights_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_final_weights_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_final_weights_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_final_weights_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_industry_benchmarks: {
+        Row: {
+          avg_displacement_weight: number
+          avg_economic_impact_weight: number
+          avg_environmental_weight: number
+          avg_fatalities_weight: number
+          avg_infrastructure_weight: number
+          avg_injuries_weight: number
+          avg_property_damage_weight: number
+          avg_psychosocial_weight: number
+          avg_reputational_weight: number
+          avg_support_system_weight: number
+          calculated_at: string | null
+          id: string
+          industry: string
+          is_active: boolean | null
+          org_size: string | null
+          percentile_data: Json | null
+          region: string | null
+          sample_size: number
+        }
+        Insert: {
+          avg_displacement_weight: number
+          avg_economic_impact_weight: number
+          avg_environmental_weight: number
+          avg_fatalities_weight: number
+          avg_infrastructure_weight: number
+          avg_injuries_weight: number
+          avg_property_damage_weight: number
+          avg_psychosocial_weight: number
+          avg_reputational_weight: number
+          avg_support_system_weight: number
+          calculated_at?: string | null
+          id?: string
+          industry: string
+          is_active?: boolean | null
+          org_size?: string | null
+          percentile_data?: Json | null
+          region?: string | null
+          sample_size: number
+        }
+        Update: {
+          avg_displacement_weight?: number
+          avg_economic_impact_weight?: number
+          avg_environmental_weight?: number
+          avg_fatalities_weight?: number
+          avg_infrastructure_weight?: number
+          avg_injuries_weight?: number
+          avg_property_damage_weight?: number
+          avg_psychosocial_weight?: number
+          avg_reputational_weight?: number
+          avg_support_system_weight?: number
+          calculated_at?: string | null
+          id?: string
+          industry?: string
+          is_active?: boolean | null
+          org_size?: string | null
+          percentile_data?: Json | null
+          region?: string | null
+          sample_size?: number
+        }
+        Relationships: []
+      }
+      weighting_mission_analysis: {
+        Row: {
+          analysis_result: Json
+          analyzed_at: string | null
+          consequence_relevance: Json
+          id: string
+          mission_statement: string
+          session_id: string
+        }
+        Insert: {
+          analysis_result: Json
+          analyzed_at?: string | null
+          consequence_relevance: Json
+          id?: string
+          mission_statement: string
+          session_id: string
+        }
+        Update: {
+          analysis_result?: Json
+          analyzed_at?: string | null
+          consequence_relevance?: Json
+          id?: string
+          mission_statement?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_mission_analysis_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_multi_executive_sessions: {
+        Row: {
+          aggregated_weights: Json | null
+          aggregation_method: string
+          completed_at: string | null
+          consensus_reached: boolean | null
+          consensus_threshold: number | null
+          disagreements_flagged: Json | null
+          executive_sessions: Json
+          id: string
+          org_id: string
+          parent_session_id: string
+          status: string | null
+        }
+        Insert: {
+          aggregated_weights?: Json | null
+          aggregation_method: string
+          completed_at?: string | null
+          consensus_reached?: boolean | null
+          consensus_threshold?: number | null
+          disagreements_flagged?: Json | null
+          executive_sessions: Json
+          id?: string
+          org_id: string
+          parent_session_id: string
+          status?: string | null
+        }
+        Update: {
+          aggregated_weights?: Json | null
+          aggregation_method?: string
+          completed_at?: string | null
+          consensus_reached?: boolean | null
+          consensus_threshold?: number | null
+          disagreements_flagged?: Json | null
+          executive_sessions?: Json
+          id?: string
+          org_id?: string
+          parent_session_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_multi_executive_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_multi_executive_sessions_parent_session_id_fkey"
+            columns: ["parent_session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_notifications: {
+        Row: {
+          acted_upon_at: string | null
+          action_url: string | null
+          created_at: string | null
+          delivery_method: string[] | null
+          id: string
+          message: string
+          notification_type: string
+          read_at: string | null
+          recipient_id: string
+          sent_at: string | null
+          session_id: string | null
+          status: string | null
+          subject: string
+        }
+        Insert: {
+          acted_upon_at?: string | null
+          action_url?: string | null
+          created_at?: string | null
+          delivery_method?: string[] | null
+          id?: string
+          message: string
+          notification_type: string
+          read_at?: string | null
+          recipient_id: string
+          sent_at?: string | null
+          session_id?: string | null
+          status?: string | null
+          subject: string
+        }
+        Update: {
+          acted_upon_at?: string | null
+          action_url?: string | null
+          created_at?: string | null
+          delivery_method?: string[] | null
+          id?: string
+          message?: string
+          notification_type?: string
+          read_at?: string | null
+          recipient_id?: string
+          sent_at?: string | null
+          session_id?: string | null
+          status?: string | null
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_notifications_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_questionnaire_responses: {
+        Row: {
+          budget_allocation_priority: string
+          completed_at: string | null
+          hardest_to_recover_consequence: string
+          id: string
+          mission_statement: string
+          past_incident_consequence_type: string | null
+          past_major_incident: string | null
+          primary_mandate: string[]
+          primary_stakeholders: Json
+          regulatory_environment: string[]
+          risk_tolerance: string
+          session_id: string
+          time_spent_seconds: number | null
+        }
+        Insert: {
+          budget_allocation_priority: string
+          completed_at?: string | null
+          hardest_to_recover_consequence: string
+          id?: string
+          mission_statement: string
+          past_incident_consequence_type?: string | null
+          past_major_incident?: string | null
+          primary_mandate: string[]
+          primary_stakeholders: Json
+          regulatory_environment: string[]
+          risk_tolerance: string
+          session_id: string
+          time_spent_seconds?: number | null
+        }
+        Update: {
+          budget_allocation_priority?: string
+          completed_at?: string | null
+          hardest_to_recover_consequence?: string
+          id?: string
+          mission_statement?: string
+          past_incident_consequence_type?: string | null
+          past_major_incident?: string | null
+          primary_mandate?: string[]
+          primary_stakeholders?: Json
+          regulatory_environment?: string[]
+          risk_tolerance?: string
+          session_id?: string
+          time_spent_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_questionnaire_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_regulatory_database: {
+        Row: {
+          ai_confidence_score: number | null
+          ai_research_date: string | null
+          consequence_emphasis: Json
+          created_at: string | null
+          id: string
+          industry: string
+          is_active: boolean | null
+          jurisdiction: string
+          jurisdiction_level: string
+          key_requirements: string[] | null
+          regulation_code: string | null
+          regulation_name: string
+          regulation_url: string | null
+          source_type: string
+          summary: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_confidence_score?: number | null
+          ai_research_date?: string | null
+          consequence_emphasis: Json
+          created_at?: string | null
+          id?: string
+          industry: string
+          is_active?: boolean | null
+          jurisdiction: string
+          jurisdiction_level: string
+          key_requirements?: string[] | null
+          regulation_code?: string | null
+          regulation_name: string
+          regulation_url?: string | null
+          source_type: string
+          summary: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_confidence_score?: number | null
+          ai_research_date?: string | null
+          consequence_emphasis?: Json
+          created_at?: string | null
+          id?: string
+          industry?: string
+          is_active?: boolean | null
+          jurisdiction?: string
+          jurisdiction_level?: string
+          key_requirements?: string[] | null
+          regulation_code?: string | null
+          regulation_name?: string
+          regulation_url?: string | null
+          source_type?: string
+          summary?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      weighting_regulatory_research: {
+        Row: {
+          ai_synthesis_prompt: string | null
+          ai_synthesis_response: string | null
+          api_cost_usd: number | null
+          consequence_regulatory_analysis: Json
+          id: string
+          industry: string
+          jurisdiction: string
+          processing_duration_seconds: number | null
+          regulatory_environment_tags: string[]
+          researched_at: string | null
+          search_queries_used: string[]
+          session_id: string
+          top_regulated_consequences: string[]
+          total_sources_found: number
+          web_search_results: Json | null
+        }
+        Insert: {
+          ai_synthesis_prompt?: string | null
+          ai_synthesis_response?: string | null
+          api_cost_usd?: number | null
+          consequence_regulatory_analysis: Json
+          id?: string
+          industry: string
+          jurisdiction: string
+          processing_duration_seconds?: number | null
+          regulatory_environment_tags: string[]
+          researched_at?: string | null
+          search_queries_used: string[]
+          session_id: string
+          top_regulated_consequences: string[]
+          total_sources_found: number
+          web_search_results?: Json | null
+        }
+        Update: {
+          ai_synthesis_prompt?: string | null
+          ai_synthesis_response?: string | null
+          api_cost_usd?: number | null
+          consequence_regulatory_analysis?: Json
+          id?: string
+          industry?: string
+          jurisdiction?: string
+          processing_duration_seconds?: number | null
+          regulatory_environment_tags?: string[]
+          researched_at?: string | null
+          search_queries_used?: string[]
+          session_id?: string
+          top_regulated_consequences?: string[]
+          total_sources_found?: number
+          web_search_results?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_regulatory_research_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_scenario_validations: {
+        Row: {
+          ai_calculated_score: number | null
+          ai_risk_category: string | null
+          completed_at: string | null
+          consequence_values: Json
+          id: string
+          misalignment_magnitude: number | null
+          rating_aligned: boolean | null
+          scenario_description: string
+          scenario_number: number
+          scenario_title: string
+          session_id: string
+          time_spent_seconds: number | null
+          user_risk_rating: string
+        }
+        Insert: {
+          ai_calculated_score?: number | null
+          ai_risk_category?: string | null
+          completed_at?: string | null
+          consequence_values: Json
+          id?: string
+          misalignment_magnitude?: number | null
+          rating_aligned?: boolean | null
+          scenario_description: string
+          scenario_number: number
+          scenario_title: string
+          session_id: string
+          time_spent_seconds?: number | null
+          user_risk_rating: string
+        }
+        Update: {
+          ai_calculated_score?: number | null
+          ai_risk_category?: string | null
+          completed_at?: string | null
+          consequence_values?: Json
+          id?: string
+          misalignment_magnitude?: number | null
+          rating_aligned?: boolean | null
+          scenario_description?: string
+          scenario_number?: number
+          scenario_title?: string
+          session_id?: string
+          time_spent_seconds?: number | null
+          user_risk_rating?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_scenario_validations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_sensitivity_tests: {
+        Row: {
+          ai_impact_analysis: string
+          ai_recommendations: string | null
+          base_weights: Json
+          id: string
+          scenario_score_changes: Json
+          session_id: string
+          test_name: string | null
+          test_weights: Json
+          tested_at: string | null
+          tested_by: string
+          weight_differences: Json
+        }
+        Insert: {
+          ai_impact_analysis: string
+          ai_recommendations?: string | null
+          base_weights: Json
+          id?: string
+          scenario_score_changes: Json
+          session_id: string
+          test_name?: string | null
+          test_weights: Json
+          tested_at?: string | null
+          tested_by: string
+          weight_differences: Json
+        }
+        Update: {
+          ai_impact_analysis?: string
+          ai_recommendations?: string | null
+          base_weights?: Json
+          id?: string
+          scenario_score_changes?: Json
+          session_id?: string
+          test_name?: string | null
+          test_weights?: Json
+          tested_at?: string | null
+          tested_by?: string
+          weight_differences?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_sensitivity_tests_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_sensitivity_tests_tested_by_fkey"
+            columns: ["tested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_sessions: {
+        Row: {
+          ai_processing_completed_at: string | null
+          ai_processing_cost_usd: number | null
+          ai_processing_duration_seconds: number | null
+          ai_processing_started_at: string | null
+          ai_processing_tokens_used: number | null
+          approved_at: string | null
+          approved_by: string | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          layer1_completed: boolean | null
+          layer2_completed: boolean | null
+          layer3_completed: boolean | null
+          layer4_completed: boolean | null
+          layer5_completed: boolean | null
+          org_id: string
+          requires_approval: boolean | null
+          session_notes: string | null
+          status: string | null
+          version: number
+        }
+        Insert: {
+          ai_processing_completed_at?: string | null
+          ai_processing_cost_usd?: number | null
+          ai_processing_duration_seconds?: number | null
+          ai_processing_started_at?: string | null
+          ai_processing_tokens_used?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          layer1_completed?: boolean | null
+          layer2_completed?: boolean | null
+          layer3_completed?: boolean | null
+          layer4_completed?: boolean | null
+          layer5_completed?: boolean | null
+          org_id: string
+          requires_approval?: boolean | null
+          session_notes?: string | null
+          status?: string | null
+          version?: number
+        }
+        Update: {
+          ai_processing_completed_at?: string | null
+          ai_processing_cost_usd?: number | null
+          ai_processing_duration_seconds?: number | null
+          ai_processing_started_at?: string | null
+          ai_processing_tokens_used?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          layer1_completed?: boolean | null
+          layer2_completed?: boolean | null
+          layer3_completed?: boolean | null
+          layer4_completed?: boolean | null
+          layer5_completed?: boolean | null
+          org_id?: string
+          requires_approval?: boolean | null
+          session_notes?: string | null
+          status?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_sessions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weighting_weight_versions: {
+        Row: {
+          approved_by: string | null
+          archive_reason: string | null
+          archived_at: string | null
+          displacement_weight: number
+          economic_impact_weight: number
+          environmental_weight: number
+          fatalities_weight: number
+          id: string
+          infrastructure_weight: number
+          injuries_weight: number
+          org_id: string
+          property_damage_weight: number
+          psychosocial_weight: number
+          reputational_weight: number
+          session_id: string | null
+          set_by: string
+          support_system_weight: number
+          version: number
+          was_active_from: string
+          was_active_until: string | null
+          weights_json: Json
+        }
+        Insert: {
+          approved_by?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
+          displacement_weight: number
+          economic_impact_weight: number
+          environmental_weight: number
+          fatalities_weight: number
+          id?: string
+          infrastructure_weight: number
+          injuries_weight: number
+          org_id: string
+          property_damage_weight: number
+          psychosocial_weight: number
+          reputational_weight: number
+          session_id?: string | null
+          set_by: string
+          support_system_weight: number
+          version: number
+          was_active_from: string
+          was_active_until?: string | null
+          weights_json: Json
+        }
+        Update: {
+          approved_by?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
+          displacement_weight?: number
+          economic_impact_weight?: number
+          environmental_weight?: number
+          fatalities_weight?: number
+          id?: string
+          infrastructure_weight?: number
+          injuries_weight?: number
+          org_id?: string
+          property_damage_weight?: number
+          psychosocial_weight?: number
+          reputational_weight?: number
+          session_id?: string | null
+          set_by?: string
+          support_system_weight?: number
+          version?: number
+          was_active_from?: string
+          was_active_until?: string | null
+          weights_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weighting_weight_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_weight_versions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_weight_versions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weighting_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weighting_weight_versions_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      activate_weighting_weights: {
+        Args: { p_new_version: number; p_org_id: string }
+        Returns: undefined
+      }
+      calculate_ahp_consistency_ratio: {
+        Args: { matrix_data: Json }
+        Returns: number
+      }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_org_role: {
         Args: {
