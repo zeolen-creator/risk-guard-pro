@@ -126,12 +126,14 @@ export function Layer2AHPComparison({ onComplete, initialMatrix }: Layer2AHPComp
 
   const sliderToValue = (pos: number): number => {
     // Position 0-8 maps to AHP scale values
-    const scaleValues = [1/9, 1/7, 1/5, 1/3, 1, 3, 5, 7, 9];
+    // Left (pos=0) = 9 means LEFT item is 9x more important
+    // Right (pos=8) = 1/9 means LEFT item is 9x less important (RIGHT is more important)
+    const scaleValues = [9, 7, 5, 3, 1, 1/3, 1/5, 1/7, 1/9];
     return scaleValues[pos] || 1;
   };
 
   const valueToSlider = (value: number): number => {
-    const scaleValues = [1/9, 1/7, 1/5, 1/3, 1, 3, 5, 7, 9];
+    const scaleValues = [9, 7, 5, 3, 1, 1/3, 1/5, 1/7, 1/9];
     // Find closest position
     let closest = 4;
     let minDiff = Math.abs(value - 1);
