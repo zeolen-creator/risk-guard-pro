@@ -765,6 +765,62 @@ export type Database = {
           },
         ]
       }
+      hazard_information_sheets: {
+        Row: {
+          common_causes: string[] | null
+          created_at: string | null
+          definition: string
+          external_resources: Json | null
+          hazard_category: string
+          hazard_name: string
+          id: string
+          industry_notes: Json | null
+          is_system_provided: boolean | null
+          org_id: string | null
+          response_actions: string[] | null
+          updated_at: string | null
+          warning_signs: string[] | null
+        }
+        Insert: {
+          common_causes?: string[] | null
+          created_at?: string | null
+          definition: string
+          external_resources?: Json | null
+          hazard_category: string
+          hazard_name: string
+          id?: string
+          industry_notes?: Json | null
+          is_system_provided?: boolean | null
+          org_id?: string | null
+          response_actions?: string[] | null
+          updated_at?: string | null
+          warning_signs?: string[] | null
+        }
+        Update: {
+          common_causes?: string[] | null
+          created_at?: string | null
+          definition?: string
+          external_resources?: Json | null
+          hazard_category?: string
+          hazard_name?: string
+          id?: string
+          industry_notes?: Json | null
+          is_system_provided?: boolean | null
+          org_id?: string | null
+          response_actions?: string[] | null
+          updated_at?: string | null
+          warning_signs?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hazard_information_sheets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hazards: {
         Row: {
           category: string
@@ -794,6 +850,86 @@ export type Database = {
           tags?: string[] | null
         }
         Relationships: []
+      }
+      historical_events: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          downtime_hours: number | null
+          event_date: string
+          event_title: string
+          fatalities: number | null
+          financial_impact: number | null
+          hazard_category: string
+          hazard_name: string
+          id: string
+          improvements_implemented: string[] | null
+          incident_report_url: string | null
+          injuries: number | null
+          lessons_learned: string | null
+          location: string | null
+          org_id: string
+          people_affected: number | null
+          photos: Json | null
+          response_effectiveness: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          downtime_hours?: number | null
+          event_date: string
+          event_title: string
+          fatalities?: number | null
+          financial_impact?: number | null
+          hazard_category: string
+          hazard_name: string
+          id?: string
+          improvements_implemented?: string[] | null
+          incident_report_url?: string | null
+          injuries?: number | null
+          lessons_learned?: string | null
+          location?: string | null
+          org_id: string
+          people_affected?: number | null
+          photos?: Json | null
+          response_effectiveness?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          downtime_hours?: number | null
+          event_date?: string
+          event_title?: string
+          fatalities?: number | null
+          financial_impact?: number | null
+          hazard_category?: string
+          hazard_name?: string
+          id?: string
+          improvements_implemented?: string[] | null
+          incident_report_url?: string | null
+          injuries?: number | null
+          lessons_learned?: string | null
+          location?: string | null
+          org_id?: string
+          people_affected?: number | null
+          photos?: Json | null
+          response_effectiveness?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       incidents: {
         Row: {
@@ -872,6 +1008,92 @@ export type Database = {
           },
           {
             foreignKeyName: "incidents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      industry_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          hazard_count: number | null
+          id: string
+          industry_type: string
+          is_system_provided: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          hazard_count?: number | null
+          id?: string
+          industry_type: string
+          is_system_provided?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          hazard_count?: number | null
+          id?: string
+          industry_type?: string
+          is_system_provided?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
+      mitigation_strategies: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          effectiveness_notes: string | null
+          hazard_category: string
+          id: string
+          implementation_complexity: string | null
+          is_system_provided: boolean | null
+          ongoing_maintenance_notes: string | null
+          org_id: string | null
+          prerequisites: string[] | null
+          strategy_name: string
+          typical_timeframe_days_max: number | null
+          typical_timeframe_days_min: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          effectiveness_notes?: string | null
+          hazard_category: string
+          id?: string
+          implementation_complexity?: string | null
+          is_system_provided?: boolean | null
+          ongoing_maintenance_notes?: string | null
+          org_id?: string | null
+          prerequisites?: string[] | null
+          strategy_name: string
+          typical_timeframe_days_max?: number | null
+          typical_timeframe_days_min?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          effectiveness_notes?: string | null
+          hazard_category?: string
+          id?: string
+          implementation_complexity?: string | null
+          is_system_provided?: boolean | null
+          ongoing_maintenance_notes?: string | null
+          org_id?: string | null
+          prerequisites?: string[] | null
+          strategy_name?: string
+          typical_timeframe_days_max?: number | null
+          typical_timeframe_days_min?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mitigation_strategies_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1111,6 +1333,94 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "organization_documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_mitigations: {
+        Row: {
+          annual_loss_estimate: number | null
+          approved_at: string | null
+          approved_by: string | null
+          assessment_id: string | null
+          created_at: string | null
+          created_by: string | null
+          estimated_cost: number | null
+          expected_risk_reduction_percent: number | null
+          hazard_id: string | null
+          id: string
+          implementation_completion_date: string | null
+          implementation_start_date: string | null
+          mitigation_strategy_id: string | null
+          notes: string | null
+          org_id: string
+          priority_rank: number | null
+          roi_score: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          annual_loss_estimate?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assessment_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          estimated_cost?: number | null
+          expected_risk_reduction_percent?: number | null
+          hazard_id?: string | null
+          id?: string
+          implementation_completion_date?: string | null
+          implementation_start_date?: string | null
+          mitigation_strategy_id?: string | null
+          notes?: string | null
+          org_id: string
+          priority_rank?: number | null
+          roi_score?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          annual_loss_estimate?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          assessment_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          estimated_cost?: number | null
+          expected_risk_reduction_percent?: number | null
+          hazard_id?: string | null
+          id?: string
+          implementation_completion_date?: string | null
+          implementation_start_date?: string | null
+          mitigation_strategy_id?: string | null
+          notes?: string | null
+          org_id?: string
+          priority_rank?: number | null
+          roi_score?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_mitigations_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_mitigations_mitigation_strategy_id_fkey"
+            columns: ["mitigation_strategy_id"]
+            isOneToOne: false
+            referencedRelation: "mitigation_strategies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_mitigations_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1512,6 +1822,50 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_hazards: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          hazard_name: string
+          id: string
+          sort_order: number | null
+          template_id: string | null
+          typical_consequence_areas: Json | null
+          typical_probability_range: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          hazard_name: string
+          id?: string
+          sort_order?: number | null
+          template_id?: string | null
+          typical_consequence_areas?: Json | null
+          typical_probability_range?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          hazard_name?: string
+          id?: string
+          sort_order?: number | null
+          template_id?: string | null
+          typical_consequence_areas?: Json | null
+          typical_probability_range?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_hazards_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "industry_templates"
             referencedColumns: ["id"]
           },
         ]
