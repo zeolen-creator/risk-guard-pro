@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.hazard-recommendations]
 verify_jwt = false
+
+[functions.climate-risk-analysis]
+verify_jwt = false
+
+[functions.executive-summary]
+verify_jwt = false
