@@ -46,6 +46,7 @@ import {
   Users,
   Flame,
   BookOpen,
+  GitCompare,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -456,6 +457,12 @@ export default function DashboardPage() {
                   <Link to="/analytics">
                     <Bell className="h-4 w-4 mr-2" />
                     View All Alerts
+                  </Link>
+                </Button>
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link to="/assessments/compare">
+                    <GitCompare className="h-4 w-4 mr-2" />
+                    Compare Assessments
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild>
