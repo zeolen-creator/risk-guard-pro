@@ -15,6 +15,8 @@ import ProfilePage from "./pages/ProfilePage";
 import NewAssessmentPage from "./pages/NewAssessmentPage";
 import EditAssessmentPage from "./pages/EditAssessmentPage";
 import WeightsSetupPage from "./pages/WeightsSetupPage";
+import WeightingWizardPage from "./pages/WeightingWizardPage";
+import WeightingSessionsPage from "./pages/WeightingSessionsPage";
 import AssessmentHistoryPage from "./pages/AssessmentHistoryPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import AssessmentComparisonPage from "./pages/AssessmentComparisonPage";
@@ -47,6 +49,8 @@ const App = () => (
             <Route path="/assessment/new" element={<ProtectedRoute><NewAssessmentPage /></ProtectedRoute>} />
             <Route path="/assessment/:id" element={<ProtectedRoute><EditAssessmentPage /></ProtectedRoute>} />
             <Route path="/settings/weights" element={<ProtectedRoute><WeightsSetupPage /></ProtectedRoute>} />
+            <Route path="/settings/weights/sessions" element={<ProtectedRoute><WeightingSessionsPage /></ProtectedRoute>} />
+            <Route path="/settings/weights/wizard/:sessionId" element={<ProtectedRoute><WeightingWizardPage /></ProtectedRoute>} />
             <Route path="/assessments/history" element={<ProtectedRoute><AssessmentHistoryPage /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
             <Route path="/assessments/compare" element={<ProtectedRoute><AssessmentComparisonPage /></ProtectedRoute>} />

@@ -17,3 +17,18 @@ verify_jwt = false
 
 [functions.executive-summary]
 verify_jwt = false
+
+[functions.calculate-consequence-weights]
+verify_jwt = false
+
+[functions.research-regulations]
+verify_jwt = false
+
+[functions.analyze-mission-statement]
+verify_jwt = false
+
+[functions.generate-scenarios]
+verify_jwt = false
+
+[functions.sensitivity-analysis]
+verify_jwt = false
