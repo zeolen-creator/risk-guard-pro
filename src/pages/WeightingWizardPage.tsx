@@ -5,8 +5,13 @@ import { toast } from "sonner";
 import { WeightingWizardLayout } from "@/features/weighting/components/WeightingWizardLayout";
 import { Layer1Questionnaire } from "@/features/weighting/components/Layer1Questionnaire";
 import { Layer2AHPComparison } from "@/features/weighting/components/Layer2AHPComparison";
+import { Layer3ScenarioValidator } from "@/features/weighting/components/Layer3ScenarioValidator";
+import { Layer4RegulatoryResearch } from "@/features/weighting/components/Layer4RegulatoryResearch";
+import { Layer5AISynthesis } from "@/features/weighting/components/Layer5AISynthesis";
+import { Layer6ApprovalWorkflow } from "@/features/weighting/components/Layer6ApprovalWorkflow";
 import { useWeightingSession, useUpdateWeightingSession } from "@/hooks/useWeightingSessions";
 import { useSaveAHPMatrix } from "@/hooks/useAHPMatrix";
+import { useOrganization } from "@/hooks/useOrganization";
 import { supabase } from "@/integrations/supabase/client";
 import type { QuestionnaireResponse } from "@/features/weighting/types";
 import { CONSEQUENCE_NAMES } from "@/features/weighting/types";
@@ -15,12 +20,14 @@ export default function WeightingWizardPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { data: session, isLoading } = useWeightingSession(sessionId);
+  const { data: organization } = useOrganization();
   const updateSession = useUpdateWeightingSession();
   const saveAHPMatrix = useSaveAHPMatrix();
 
   const [currentLayer, setCurrentLayer] = useState(1);
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireResponse | null>(null);
   const [ahpWeights, setAhpWeights] = useState<Record<string, number> | null>(null);
+  const [recommendedWeights, setRecommendedWeights] = useState<Record<string, number> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Sync current layer from session
@@ -68,6 +75,23 @@ export default function WeightingWizardPage() {
     }
   };
 
+  const handleScenarioValidationComplete = () => {
+    // Scenario validation step completed
+  };
+
+  const handleRegulatoryComplete = () => {
+    // Regulatory research step completed
+  };
+
+  const handleSynthesisComplete = () => {
+    // Synthesis step completed
+  };
+
+  const handleApprovalComplete = () => {
+    toast.success("Weights approved and activated!");
+    navigate("/settings/weights");
+  };
+
   const handleNext = async () => {
     if (!sessionId) return;
     setIsProcessing(true);
@@ -113,7 +137,7 @@ export default function WeightingWizardPage() {
           break;
 
         case 3:
-          // Scenario validation - mark complete for now
+          // Scenario validation complete
           await updateSession.mutateAsync({
             sessionId,
             updates: { layer3_completed: true },
@@ -122,7 +146,7 @@ export default function WeightingWizardPage() {
           break;
 
         case 4:
-          // Regulatory research - mark complete for now
+          // Regulatory research complete
           await updateSession.mutateAsync({
             sessionId,
             updates: { layer4_completed: true },
@@ -131,7 +155,7 @@ export default function WeightingWizardPage() {
           break;
 
         case 5:
-          // AI Synthesis - mark complete for now
+          // AI Synthesis complete
           await updateSession.mutateAsync({
             sessionId,
             updates: { layer5_completed: true },
@@ -140,17 +164,7 @@ export default function WeightingWizardPage() {
           break;
 
         case 6:
-          // Final approval
-          await updateSession.mutateAsync({
-            sessionId,
-            updates: { 
-              status: "approved",
-              approved_at: new Date().toISOString(),
-              completed_at: new Date().toISOString(),
-            },
-          });
-          toast.success("Weights approved and activated!");
-          navigate("/settings/weights");
+          // Final approval handled by Layer6ApprovalWorkflow component
           break;
       }
     } catch (error) {
@@ -203,51 +217,37 @@ export default function WeightingWizardPage() {
         );
       case 3:
         return (
-          <div className="max-w-4xl mx-auto text-center py-12">
-            <h1 className="text-2xl font-bold mb-4">Scenario Validation</h1>
-            <p className="text-muted-foreground mb-8">
-              Test your weights against realistic scenarios to validate they produce sensible risk scores.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              (Layer 3 - Coming soon. Click Next to continue.)
-            </p>
-          </div>
+          <Layer3ScenarioValidator
+            sessionId={sessionId!}
+            ahpWeights={ahpWeights || {}}
+            industryType={organization?.industry_type || organization?.sector || "healthcare"}
+            onComplete={handleScenarioValidationComplete}
+          />
         );
       case 4:
         return (
-          <div className="max-w-4xl mx-auto text-center py-12">
-            <h1 className="text-2xl font-bold mb-4">Regulatory Research</h1>
-            <p className="text-muted-foreground mb-8">
-              AI analyzes regulatory requirements for your industry and jurisdiction.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              (Layer 4 - Coming soon. Click Next to continue.)
-            </p>
-          </div>
+          <Layer4RegulatoryResearch
+            sessionId={sessionId!}
+            industryType={organization?.industry_type || organization?.sector || "general"}
+            jurisdiction={organization?.region || "Canada"}
+            ahpWeights={ahpWeights || {}}
+            onComplete={handleRegulatoryComplete}
+          />
         );
       case 5:
         return (
-          <div className="max-w-4xl mx-auto text-center py-12">
-            <h1 className="text-2xl font-bold mb-4">AI Synthesis</h1>
-            <p className="text-muted-foreground mb-8">
-              AI synthesizes all inputs to generate final weight recommendations with justifications.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              (Layer 5 - Coming soon. Click Next to continue.)
-            </p>
-          </div>
+          <Layer5AISynthesis
+            sessionId={sessionId!}
+            onComplete={handleSynthesisComplete}
+          />
         );
       case 6:
         return (
-          <div className="max-w-4xl mx-auto text-center py-12">
-            <h1 className="text-2xl font-bold mb-4">Approval & Activation</h1>
-            <p className="text-muted-foreground mb-8">
-              Review final weights and approve for activation.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              (Layer 6 - Coming soon. Click Complete to finish.)
-            </p>
-          </div>
+          <Layer6ApprovalWorkflow
+            sessionId={sessionId!}
+            weights={recommendedWeights || ahpWeights || {}}
+            onComplete={handleApprovalComplete}
+          />
         );
       default:
         return null;
@@ -260,17 +260,23 @@ export default function WeightingWizardPage() {
         return !questionnaireData?.stakeholder_priority;
       case 2:
         return !ahpWeights;
+      case 6:
+        // Layer 6 has its own approval button
+        return true;
       default:
         return false;
     }
   };
+
+  // Hide next button on Layer 6 (approval has its own controls)
+  const showNextButton = currentLayer !== 6;
 
   return (
     <WeightingWizardLayout
       currentLayer={currentLayer}
       sessionTitle={`Weighting Session v${session.version}`}
       layerCompleted={layerCompleted}
-      onNext={handleNext}
+      onNext={showNextButton ? handleNext : undefined}
       onBack={handleBack}
       isNextDisabled={isNextDisabled()}
       isProcessing={isProcessing || updateSession.isPending}

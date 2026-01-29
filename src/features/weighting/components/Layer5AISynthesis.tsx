@@ -16,9 +16,9 @@ import { JustificationReport } from "./JustificationReport";
 
 interface Layer5AISynthesisProps {
   sessionId: string;
-  organizationId: string;
-  onComplete: () => void;
-  onBack: () => void;
+  organizationId?: string;
+  onComplete?: () => void;
+  onBack?: () => void;
 }
 
 interface SynthesisResult {
@@ -174,7 +174,7 @@ export function Layer5AISynthesis({
         description: "Proceeding to approval workflow",
       });
 
-      onComplete();
+      onComplete?.();
     } catch (error) {
       console.error('Error saving:', error);
       toast({
@@ -287,7 +287,7 @@ export function Layer5AISynthesis({
 
       {/* Actions */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={!onBack}>
           Back to Research
         </Button>
         {hasExistingSynthesis && (
