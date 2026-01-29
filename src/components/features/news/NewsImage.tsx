@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Category = "weather" | "security" | "health" | "infrastructure" | "financial" | "general";
+type Category = "weather" | "security" | "health" | "infrastructure" | "financial" | "regulatory" | "cyber" | "supply_chain" | "environmental" | "general";
 
 interface NewsImageProps {
   imageUrl?: string | null;
@@ -47,6 +47,10 @@ function getCategoryIcon(category: Category, title: string) {
     health: Heart,
     infrastructure: /power|electric|outage/i.test(lowerTitle) ? Zap : Building2,
     financial: DollarSign,
+    regulatory: Shield,
+    cyber: Lock,
+    supply_chain: Building2,
+    environmental: Droplets,
     general: Globe,
   };
   
@@ -60,6 +64,10 @@ const categoryColors: Record<Category, { bg: string; icon: string }> = {
   health: { bg: "bg-pink-100 dark:bg-pink-900/40", icon: "text-pink-600 dark:text-pink-400" },
   infrastructure: { bg: "bg-amber-100 dark:bg-amber-900/40", icon: "text-amber-600 dark:text-amber-400" },
   financial: { bg: "bg-emerald-100 dark:bg-emerald-900/40", icon: "text-emerald-600 dark:text-emerald-400" },
+  regulatory: { bg: "bg-purple-100 dark:bg-purple-900/40", icon: "text-purple-600 dark:text-purple-400" },
+  cyber: { bg: "bg-indigo-100 dark:bg-indigo-900/40", icon: "text-indigo-600 dark:text-indigo-400" },
+  supply_chain: { bg: "bg-orange-100 dark:bg-orange-900/40", icon: "text-orange-600 dark:text-orange-400" },
+  environmental: { bg: "bg-green-100 dark:bg-green-900/40", icon: "text-green-600 dark:text-green-400" },
   general: { bg: "bg-slate-100 dark:bg-slate-800/40", icon: "text-slate-600 dark:text-slate-400" },
 };
 

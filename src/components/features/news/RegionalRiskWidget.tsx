@@ -25,6 +25,10 @@ import {
   DollarSign,
   Building2,
   Globe,
+  Scale,
+  ShieldAlert,
+  Package,
+  Leaf,
 } from "lucide-react";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useNewsFeed, useNewsDismissals, useDismissNewsItem, useRefreshNewsFeed, NewsItem, WeatherAlert } from "@/hooks/useNewsFeed";
@@ -32,15 +36,35 @@ import { useHazards } from "@/hooks/useHazards";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { NewsImage } from "./NewsImage";
+import { getIndustryCategoryConfig, NewsCategory, CATEGORY_DISPLAY_CONFIG } from "@/constants/industryCategoryMappings";
 
-type Category = "weather" | "security" | "health" | "infrastructure" | "financial" | "general";
+// Icon mapping for dynamic rendering
+const ICON_MAP: Record<string, React.ElementType> = {
+  Cloud,
+  Shield,
+  Heart,
+  Zap,
+  DollarSign,
+  Globe,
+  Scale,
+  ShieldAlert,
+  Package,
+  Leaf,
+  Building2,
+};
+
+type Category = "weather" | "security" | "health" | "infrastructure" | "financial" | "regulatory" | "cyber" | "supply_chain" | "environmental" | "general";
 
 const CATEGORY_CONFIG: Record<Category, { icon: React.ElementType; label: string; color: string; bgColor: string }> = {
   weather: { icon: Cloud, label: "Weather & Environment", color: "text-sky-600", bgColor: "bg-sky-50 dark:bg-sky-950/30" },
   security: { icon: Shield, label: "Security & Safety", color: "text-red-600", bgColor: "bg-red-50 dark:bg-red-950/30" },
-  health: { icon: Heart, label: "Health & Public Safety", color: "text-pink-600", bgColor: "bg-pink-50 dark:bg-pink-950/30" },
-  infrastructure: { icon: Zap, label: "Infrastructure & Transit", color: "text-amber-600", bgColor: "bg-amber-50 dark:bg-amber-950/30" },
-  financial: { icon: DollarSign, label: "Business & Financial", color: "text-emerald-600", bgColor: "bg-emerald-50 dark:bg-emerald-950/30" },
+  health: { icon: Heart, label: "Health & Medical", color: "text-pink-600", bgColor: "bg-pink-50 dark:bg-pink-950/30" },
+  infrastructure: { icon: Zap, label: "Infrastructure", color: "text-amber-600", bgColor: "bg-amber-50 dark:bg-amber-950/30" },
+  financial: { icon: DollarSign, label: "Business & Economic", color: "text-emerald-600", bgColor: "bg-emerald-50 dark:bg-emerald-950/30" },
+  regulatory: { icon: Scale, label: "Regulatory", color: "text-purple-600", bgColor: "bg-purple-50 dark:bg-purple-950/30" },
+  cyber: { icon: ShieldAlert, label: "Cybersecurity", color: "text-indigo-600", bgColor: "bg-indigo-50 dark:bg-indigo-950/30" },
+  supply_chain: { icon: Package, label: "Supply Chain", color: "text-orange-600", bgColor: "bg-orange-50 dark:bg-orange-950/30" },
+  environmental: { icon: Leaf, label: "Environmental", color: "text-green-600", bgColor: "bg-green-50 dark:bg-green-950/30" },
   general: { icon: Globe, label: "General News", color: "text-slate-600", bgColor: "bg-slate-50 dark:bg-slate-950/30" },
 };
 
@@ -159,6 +183,7 @@ function NewsCard({ item, onDismiss, isDismissing, matchedHazards, category }: N
     </div>
   );
 }
+
 interface CategorySectionProps {
   items: (WeatherAlert | NewsItem)[];
   category: Category;
@@ -213,7 +238,12 @@ export function RegionalRiskWidget() {
   const newsEnabled = org?.news_settings?.enabled ?? false;
   const primaryLocation = org?.primary_location;
 
-  // Match news to hazards (simple keyword matching)
+  // Get industry-specific category configuration
+  const industryCategoryConfig = useMemo(() => {
+    return getIndustryCategoryConfig(org?.industry_type, org?.sector);
+  }, [org?.industry_type, org?.sector]);
+
+  // Match news to hazards (enhanced with industry keywords)
   const matchNewsToHazards = (item: WeatherAlert | NewsItem): string[] => {
     if (!hazards) return [];
     const text = (item.title + " " + item.description).toLowerCase();
@@ -228,11 +258,20 @@ export function RegionalRiskWidget() {
         }
       }
     }
+    
+    // Also check industry keywords for relevance boost
+    const industryKeywords = industryCategoryConfig.keywords;
+    for (const keyword of industryKeywords) {
+      if (text.includes(keyword.toLowerCase()) && !matches.includes(keyword)) {
+        // Don't add as a match, but this item is more relevant
+      }
+    }
+    
     return matches;
   };
 
-  // Filter out dismissed items and deduplicate by URL
-  const { weatherAlerts, newsItems, categorizedNews } = useMemo(() => {
+  // Filter and categorize news with industry relevance
+  const { weatherAlerts, newsItems, categorizedNews, relevantCategories } = useMemo(() => {
     const alerts = (newsFeed?.feed_data?.weather_alerts || []).filter(
       (alert) => !dismissals?.has(alert.hash)
     );
@@ -249,31 +288,64 @@ export function RegionalRiskWidget() {
       return true;
     });
 
-    // Categorize news
+    // Score and boost news items by industry relevance
+    const scoredNews = uniqueNews.map(item => {
+      const text = (item.title + " " + item.description).toLowerCase();
+      let relevanceBoost = 0;
+      
+      // Boost items matching industry keywords
+      for (const keyword of industryCategoryConfig.keywords) {
+        if (text.includes(keyword.toLowerCase())) {
+          relevanceBoost += 20;
+        }
+      }
+      
+      return {
+        ...item,
+        relevance_score: (item.relevance_score || 0) + relevanceBoost,
+      };
+    });
+
+    // Sort by boosted relevance
+    const sortedNews = scoredNews.sort((a, b) => b.relevance_score - a.relevance_score);
+
+    // Categorize news - map to industry-relevant categories
     const categorized: Record<Category, NewsItem[]> = {
       weather: [],
       security: [],
       health: [],
       infrastructure: [],
       financial: [],
+      regulatory: [],
+      cyber: [],
+      supply_chain: [],
+      environmental: [],
       general: [],
     };
 
-    uniqueNews.forEach((item) => {
-      const cat = (item.category as Category) || "general";
-      if (categorized[cat]) {
-        categorized[cat].push(item);
-      } else {
-        categorized.general.push(item);
+    sortedNews.forEach((item) => {
+      // Try to map item category to our categories
+      let cat = (item.category as Category) || "general";
+      
+      // Map any unrecognized categories to general
+      if (!categorized[cat]) {
+        cat = "general";
       }
+      
+      categorized[cat].push(item);
     });
+
+    // Determine which categories to show based on industry config
+    const industryCategories = industryCategoryConfig.categories;
+    const relevantCats: Category[] = ["weather", ...industryCategories.filter(c => c !== "weather")] as Category[];
 
     return {
       weatherAlerts: alerts,
-      newsItems: uniqueNews,
+      newsItems: sortedNews,
       categorizedNews: categorized,
+      relevantCategories: relevantCats,
     };
-  }, [newsFeed, dismissals]);
+  }, [newsFeed, dismissals, industryCategoryConfig]);
 
   const handleDismiss = (itemHash: string) => {
     dismissItem.mutate(itemHash, {
@@ -349,16 +421,20 @@ export function RegionalRiskWidget() {
   const cityName = locationParts[0]?.trim() || "Your Location";
   const provinceName = locationParts[1]?.trim() || "";
 
-  // Count items per category
-  const categoryCounts = {
+  // Calculate counts for industry-relevant categories
+  const categoryCounts: Record<string, number> = {
     all: totalAlerts,
     weather: weatherAlerts.length + categorizedNews.weather.length,
-    security: categorizedNews.security.length,
-    health: categorizedNews.health.length,
-    infrastructure: categorizedNews.infrastructure.length,
-    financial: categorizedNews.financial.length,
-    general: categorizedNews.general.length,
   };
+  
+  relevantCategories.forEach(cat => {
+    if (cat !== "weather") {
+      categoryCounts[cat] = categorizedNews[cat]?.length || 0;
+    }
+  });
+
+  // Get display label for industry
+  const industryLabel = org?.industry_type || org?.sector || "Organization";
 
   return (
     <Card className="border-2 hover:shadow-lg transition-shadow">
@@ -370,7 +446,7 @@ export function RegionalRiskWidget() {
             </div>
             <div>
               <CardTitle className="flex items-center gap-2">
-                Regional Risk Intelligence
+                {industryLabel} Risk Intelligence
                 {totalAlerts > 0 && (
                   <Badge variant="destructive" className="ml-1">
                     {totalAlerts}
@@ -379,6 +455,15 @@ export function RegionalRiskWidget() {
               </CardTitle>
               <CardDescription className="flex items-center gap-2 mt-1">
                 <span>{cityName}, {provinceName}</span>
+                {industryCategoryConfig.globalScope && (
+                  <>
+                    <span>•</span>
+                    <Badge variant="outline" className="text-xs py-0">
+                      <Globe className="h-3 w-3 mr-1" />
+                      Global Alerts
+                    </Badge>
+                  </>
+                )}
                 {newsFeed?.feed_data?.fetched_at && (
                   <>
                     <span>•</span>
@@ -409,7 +494,7 @@ export function RegionalRiskWidget() {
             <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-green-500" />
             <p className="font-semibold text-green-700 dark:text-green-400">No Active Alerts</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Monitoring {cityName}, {provinceName}
+              Monitoring {industryLabel.toLowerCase()} risks for {cityName}, {provinceName}
             </p>
           </div>
         ) : (
@@ -419,30 +504,23 @@ export function RegionalRiskWidget() {
                 <Newspaper className="h-3 w-3 mr-1" />
                 All ({categoryCounts.all})
               </TabsTrigger>
-              {categoryCounts.weather > 0 && (
-                <TabsTrigger value="weather" className="flex-1 min-w-[80px] text-xs">
-                  <Cloud className="h-3 w-3 mr-1" />
-                  Weather ({categoryCounts.weather})
-                </TabsTrigger>
-              )}
-              {categoryCounts.security > 0 && (
-                <TabsTrigger value="security" className="flex-1 min-w-[80px] text-xs">
-                  <Shield className="h-3 w-3 mr-1" />
-                  Security ({categoryCounts.security})
-                </TabsTrigger>
-              )}
-              {categoryCounts.infrastructure > 0 && (
-                <TabsTrigger value="infrastructure" className="flex-1 min-w-[80px] text-xs">
-                  <Building2 className="h-3 w-3 mr-1" />
-                  Transit ({categoryCounts.infrastructure})
-                </TabsTrigger>
-              )}
-              {categoryCounts.financial > 0 && (
-                <TabsTrigger value="financial" className="flex-1 min-w-[80px] text-xs">
-                  <DollarSign className="h-3 w-3 mr-1" />
-                  Business ({categoryCounts.financial})
-                </TabsTrigger>
-              )}
+              
+              {/* Dynamic industry-specific tabs */}
+              {relevantCategories.map(cat => {
+                const count = categoryCounts[cat] || 0;
+                if (count === 0 && cat !== "health") return null; // Always show health for healthcare
+                
+                const config = CATEGORY_CONFIG[cat];
+                if (!config) return null;
+                
+                const Icon = config.icon;
+                return (
+                  <TabsTrigger key={cat} value={cat} className="flex-1 min-w-[80px] text-xs">
+                    <Icon className="h-3 w-3 mr-1" />
+                    {config.label.split(" ")[0]} ({count})
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
 
             <ScrollArea className="h-[400px] mt-4 pr-2">
@@ -480,57 +558,40 @@ export function RegionalRiskWidget() {
                 ))}
               </TabsContent>
 
-              <TabsContent value="weather" className="mt-0">
-                <div className="space-y-3">
-                  {weatherAlerts.map((alert) => (
-                    <NewsCard
-                      key={alert.hash}
-                      item={alert}
-                      category="weather"
-                      onDismiss={() => handleDismiss(alert.hash)}
+              {/* Dynamic category content */}
+              {relevantCategories.map(cat => (
+                <TabsContent key={cat} value={cat} className="mt-0">
+                  {cat === "weather" ? (
+                    <div className="space-y-3">
+                      {weatherAlerts.map((alert) => (
+                        <NewsCard
+                          key={alert.hash}
+                          item={alert}
+                          category="weather"
+                          onDismiss={() => handleDismiss(alert.hash)}
+                          isDismissing={dismissItem.isPending}
+                          matchedHazards={matchNewsToHazards(alert)}
+                        />
+                      ))}
+                      <CategorySection
+                        items={categorizedNews.weather}
+                        category="weather"
+                        onDismiss={handleDismiss}
+                        isDismissing={dismissItem.isPending}
+                        matchNewsToHazards={matchNewsToHazards}
+                      />
+                    </div>
+                  ) : (
+                    <CategorySection
+                      items={categorizedNews[cat] || []}
+                      category={cat}
+                      onDismiss={handleDismiss}
                       isDismissing={dismissItem.isPending}
-                      matchedHazards={matchNewsToHazards(alert)}
+                      matchNewsToHazards={matchNewsToHazards}
                     />
-                  ))}
-                  <CategorySection
-                    items={categorizedNews.weather}
-                    category="weather"
-                    onDismiss={handleDismiss}
-                    isDismissing={dismissItem.isPending}
-                    matchNewsToHazards={matchNewsToHazards}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="security" className="mt-0">
-                <CategorySection
-                  items={categorizedNews.security}
-                  category="security"
-                  onDismiss={handleDismiss}
-                  isDismissing={dismissItem.isPending}
-                  matchNewsToHazards={matchNewsToHazards}
-                />
-              </TabsContent>
-
-              <TabsContent value="infrastructure" className="mt-0">
-                <CategorySection
-                  items={categorizedNews.infrastructure}
-                  category="infrastructure"
-                  onDismiss={handleDismiss}
-                  isDismissing={dismissItem.isPending}
-                  matchNewsToHazards={matchNewsToHazards}
-                />
-              </TabsContent>
-
-              <TabsContent value="financial" className="mt-0">
-                <CategorySection
-                  items={categorizedNews.financial}
-                  category="financial"
-                  onDismiss={handleDismiss}
-                  isDismissing={dismissItem.isPending}
-                  matchNewsToHazards={matchNewsToHazards}
-                />
-              </TabsContent>
+                  )}
+                </TabsContent>
+              ))}
 
               <TabsContent value="general" className="mt-0">
                 <CategorySection
