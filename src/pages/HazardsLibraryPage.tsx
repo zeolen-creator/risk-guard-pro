@@ -6,17 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { HazardInfoSheetDialog } from "@/components/features/hazards/HazardInfoSheetDialog";
 import {
   Shield,
   Search,
   ArrowLeft,
   AlertTriangle,
   Loader2,
+  BookOpen,
 } from "lucide-react";
 
 export default function HazardsLibraryPage() {
   const { data: hazards, isLoading } = useHazards();
   const [searchQuery, setSearchQuery] = useState("");
+  const [infoSheetHazard, setInfoSheetHazard] = useState<string | null>(null);
 
   const filteredHazards = hazards?.filter((category) => {
     const matchesCategory = category.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -128,12 +131,26 @@ export default function HazardsLibraryPage() {
                           <Badge
                             key={idx}
                             variant="secondary"
-                            className="text-sm font-normal"
+                            className="text-sm font-normal cursor-pointer hover:bg-secondary/80"
+                            onClick={() => setInfoSheetHazard(hazard)}
                           >
                             {highlightMatch(hazard)}
                           </Badge>
                         ))}
                       </div>
+                      
+                      {/* Learn More Button */}
+                      <div className="pl-11 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setInfoSheetHazard(category.category)}
+                        >
+                          <BookOpen className="h-4 w-4 mr-2" />
+                          Learn More About {category.category}
+                        </Button>
+                      </div>
+                      
                       {category.tags.length > 0 && (
                         <div className="pl-11 mt-4 flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">Tags:</span>
@@ -180,6 +197,13 @@ export default function HazardsLibraryPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Hazard Info Sheet Dialog */}
+        <HazardInfoSheetDialog
+          open={!!infoSheetHazard}
+          onOpenChange={(open) => !open && setInfoSheetHazard(null)}
+          hazardName={infoSheetHazard}
+        />
       </main>
     </div>
   );
