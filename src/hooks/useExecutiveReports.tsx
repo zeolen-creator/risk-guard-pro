@@ -45,7 +45,7 @@ export function useExecutiveReports() {
         .from("executive_reports")
         .select("*")
         .eq("org_id", profile.org_id)
-        .order("period_end", { ascending: false });
+        .order("period_end", { ascending: false }) as { data: unknown; error: Error | null };
 
       if (error) throw error;
       return (data || []) as ExecutiveReport[];

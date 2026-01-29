@@ -149,13 +149,58 @@ export type Database = {
           },
         ]
       }
+      assessment_compliance: {
+        Row: {
+          assessment_id: string
+          compliance_notes: string | null
+          is_compliant: boolean | null
+          requirement_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          assessment_id: string
+          compliance_notes?: string | null
+          is_compliant?: boolean | null
+          requirement_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          assessment_id?: string
+          compliance_notes?: string | null
+          is_compliant?: boolean | null
+          requirement_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_compliance_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_compliance_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "regulatory_requirements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessments: {
         Row: {
           created_at: string
           id: string
           impacts: Json | null
+          location_id: string | null
+          mode: string | null
           org_id: string
           probabilities: Json | null
+          quick_ratings: Json | null
           results: Json | null
           selected_hazards: Json | null
           status: string
@@ -169,8 +214,11 @@ export type Database = {
           created_at?: string
           id?: string
           impacts?: Json | null
+          location_id?: string | null
+          mode?: string | null
           org_id: string
           probabilities?: Json | null
+          quick_ratings?: Json | null
           results?: Json | null
           selected_hazards?: Json | null
           status?: string
@@ -184,8 +232,11 @@ export type Database = {
           created_at?: string
           id?: string
           impacts?: Json | null
+          location_id?: string | null
+          mode?: string | null
           org_id?: string
           probabilities?: Json | null
+          quick_ratings?: Json | null
           results?: Json | null
           selected_hazards?: Json | null
           status?: string
@@ -196,6 +247,13 @@ export type Database = {
           weights?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "assessments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "organization_locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "assessments_org_id_fkey"
             columns: ["org_id"]
@@ -333,6 +391,51 @@ export type Database = {
           region?: string | null
           sample_size?: number
           top_3_hazards?: Json | null
+        }
+        Relationships: []
+      }
+      climate_risk_adjustments: {
+        Row: {
+          baseline_year: number | null
+          confidence_level: string | null
+          created_at: string | null
+          data_sources: Json | null
+          hazard_category: string
+          id: string
+          last_updated: string | null
+          location_region: string
+          projection_2030: number | null
+          projection_2040: number | null
+          projection_2050: number | null
+          summary_text: string | null
+        }
+        Insert: {
+          baseline_year?: number | null
+          confidence_level?: string | null
+          created_at?: string | null
+          data_sources?: Json | null
+          hazard_category: string
+          id?: string
+          last_updated?: string | null
+          location_region: string
+          projection_2030?: number | null
+          projection_2040?: number | null
+          projection_2050?: number | null
+          summary_text?: string | null
+        }
+        Update: {
+          baseline_year?: number | null
+          confidence_level?: string | null
+          created_at?: string | null
+          data_sources?: Json | null
+          hazard_category?: string
+          id?: string
+          last_updated?: string | null
+          location_region?: string
+          projection_2030?: number | null
+          projection_2040?: number | null
+          projection_2050?: number | null
+          summary_text?: string | null
         }
         Relationships: []
       }
@@ -590,10 +693,98 @@ export type Database = {
           },
         ]
       }
+      event_assessments: {
+        Row: {
+          assessment_id: string | null
+          created_at: string | null
+          created_by: string | null
+          during_event_checklist: Json | null
+          event_date_end: string | null
+          event_date_start: string | null
+          event_name: string
+          event_type: string | null
+          expected_attendance: number | null
+          has_alcohol: boolean | null
+          has_food_service: boolean | null
+          id: string
+          is_outdoor: boolean | null
+          org_id: string
+          post_event_checklist: Json | null
+          pre_event_checklist: Json | null
+          special_considerations: string | null
+          status: string | null
+          updated_at: string | null
+          venue_address: string | null
+          venue_type: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          during_event_checklist?: Json | null
+          event_date_end?: string | null
+          event_date_start?: string | null
+          event_name: string
+          event_type?: string | null
+          expected_attendance?: number | null
+          has_alcohol?: boolean | null
+          has_food_service?: boolean | null
+          id?: string
+          is_outdoor?: boolean | null
+          org_id: string
+          post_event_checklist?: Json | null
+          pre_event_checklist?: Json | null
+          special_considerations?: string | null
+          status?: string | null
+          updated_at?: string | null
+          venue_address?: string | null
+          venue_type?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          during_event_checklist?: Json | null
+          event_date_end?: string | null
+          event_date_start?: string | null
+          event_name?: string
+          event_type?: string | null
+          expected_attendance?: number | null
+          has_alcohol?: boolean | null
+          has_food_service?: boolean | null
+          id?: string
+          is_outdoor?: boolean | null
+          org_id?: string
+          post_event_checklist?: Json | null
+          pre_event_checklist?: Json | null
+          special_considerations?: string | null
+          status?: string | null
+          updated_at?: string | null
+          venue_address?: string | null
+          venue_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_assessments_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_assessments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       executive_reports: {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          assessment_id: string | null
           created_at: string | null
           generated_by: string | null
           id: string
@@ -610,6 +801,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          assessment_id?: string | null
           created_at?: string | null
           generated_by?: string | null
           id?: string
@@ -626,6 +818,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          assessment_id?: string | null
           created_at?: string | null
           generated_by?: string | null
           id?: string
@@ -640,6 +833,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "executive_reports_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "executive_reports_org_id_fkey"
             columns: ["org_id"]
@@ -1045,6 +1245,121 @@ export type Database = {
         }
         Relationships: []
       }
+      infrastructure_assets: {
+        Row: {
+          asset_name: string
+          asset_type: string
+          created_at: string | null
+          criticality: string | null
+          description: string | null
+          id: string
+          location_id: string | null
+          org_id: string
+          recovery_time_hours: number | null
+          replacement_cost: number | null
+          updated_at: string | null
+          vendor: string | null
+        }
+        Insert: {
+          asset_name: string
+          asset_type: string
+          created_at?: string | null
+          criticality?: string | null
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          org_id: string
+          recovery_time_hours?: number | null
+          replacement_cost?: number | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          asset_name?: string
+          asset_type?: string
+          created_at?: string | null
+          criticality?: string | null
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          org_id?: string
+          recovery_time_hours?: number | null
+          replacement_cost?: number | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infrastructure_assets_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "organization_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "infrastructure_assets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      infrastructure_dependencies: {
+        Row: {
+          created_at: string | null
+          criticality: string | null
+          dependency_type: string | null
+          downstream_asset_id: string
+          id: string
+          notes: string | null
+          org_id: string
+          upstream_asset_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          criticality?: string | null
+          dependency_type?: string | null
+          downstream_asset_id: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          upstream_asset_id: string
+        }
+        Update: {
+          created_at?: string | null
+          criticality?: string | null
+          dependency_type?: string | null
+          downstream_asset_id?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          upstream_asset_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "infrastructure_dependencies_downstream_asset_id_fkey"
+            columns: ["downstream_asset_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "infrastructure_dependencies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "infrastructure_dependencies_upstream_asset_id_fkey"
+            columns: ["upstream_asset_id"]
+            isOneToOne: false
+            referencedRelation: "infrastructure_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mitigation_strategies: {
         Row: {
           created_at: string | null
@@ -1340,6 +1655,59 @@ export type Database = {
           },
         ]
       }
+      organization_locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          country: string | null
+          created_at: string | null
+          employee_count: number | null
+          geographic_risks: Json | null
+          id: string
+          is_headquarters: boolean | null
+          location_name: string
+          org_id: string
+          province: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          employee_count?: number | null
+          geographic_risks?: Json | null
+          id?: string
+          is_headquarters?: boolean | null
+          location_name: string
+          org_id: string
+          province?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          employee_count?: number | null
+          geographic_risks?: Json | null
+          id?: string
+          is_headquarters?: boolean | null
+          location_name?: string
+          org_id?: string
+          province?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_locations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_mitigations: {
         Row: {
           annual_loss_estimate: number | null
@@ -1441,9 +1809,11 @@ export type Database = {
           owner_id: string
           primary_location: string | null
           region: string
+          risk_appetite_config: Json | null
           sector: string
           size: string | null
           updated_at: string
+          vulnerability_factors: Json | null
           weights_configured: boolean
         }
         Insert: {
@@ -1458,9 +1828,11 @@ export type Database = {
           owner_id: string
           primary_location?: string | null
           region: string
+          risk_appetite_config?: Json | null
           sector: string
           size?: string | null
           updated_at?: string
+          vulnerability_factors?: Json | null
           weights_configured?: boolean
         }
         Update: {
@@ -1475,9 +1847,11 @@ export type Database = {
           owner_id?: string
           primary_location?: string | null
           region?: string
+          risk_appetite_config?: Json | null
           sector?: string
           size?: string | null
           updated_at?: string
+          vulnerability_factors?: Json | null
           weights_configured?: boolean
         }
         Relationships: []
@@ -1584,6 +1958,72 @@ export type Database = {
             columns: ["hazard_id"]
             isOneToOne: false
             referencedRelation: "hazards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_acceptance_records: {
+        Row: {
+          acceptance_rationale: string | null
+          accepted: boolean | null
+          accepted_at: string | null
+          accepted_by: string | null
+          assessment_id: string | null
+          compensating_controls: string[] | null
+          created_at: string | null
+          exceeds_appetite: boolean | null
+          hazard_id: string
+          id: string
+          org_id: string
+          review_date: string | null
+          risk_level: string
+          risk_score: number
+        }
+        Insert: {
+          acceptance_rationale?: string | null
+          accepted?: boolean | null
+          accepted_at?: string | null
+          accepted_by?: string | null
+          assessment_id?: string | null
+          compensating_controls?: string[] | null
+          created_at?: string | null
+          exceeds_appetite?: boolean | null
+          hazard_id: string
+          id?: string
+          org_id: string
+          review_date?: string | null
+          risk_level: string
+          risk_score: number
+        }
+        Update: {
+          acceptance_rationale?: string | null
+          accepted?: boolean | null
+          accepted_at?: string | null
+          accepted_by?: string | null
+          assessment_id?: string | null
+          compensating_controls?: string[] | null
+          created_at?: string | null
+          exceeds_appetite?: boolean | null
+          hazard_id?: string
+          id?: string
+          org_id?: string
+          review_date?: string | null
+          risk_level?: string
+          risk_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_acceptance_records_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_acceptance_records_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1772,6 +2212,111 @@ export type Database = {
           template_name?: string
         }
         Relationships: []
+      }
+      stakeholder_reviews: {
+        Row: {
+          assessment_id: string
+          comments: string | null
+          created_at: string | null
+          id: string
+          org_id: string
+          reviewed_at: string | null
+          sent_at: string | null
+          stakeholder_id: string
+          status: string | null
+        }
+        Insert: {
+          assessment_id: string
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          org_id: string
+          reviewed_at?: string | null
+          sent_at?: string | null
+          stakeholder_id: string
+          status?: string | null
+        }
+        Update: {
+          assessment_id?: string
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          org_id?: string
+          reviewed_at?: string | null
+          sent_at?: string | null
+          stakeholder_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stakeholder_reviews_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stakeholder_reviews_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stakeholder_reviews_stakeholder_id_fkey"
+            columns: ["stakeholder_id"]
+            isOneToOne: false
+            referencedRelation: "stakeholders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stakeholders: {
+        Row: {
+          created_at: string | null
+          department: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          org_id: string
+          phone: string | null
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          org_id: string
+          phone?: string | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          org_id?: string
+          phone?: string | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stakeholders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
