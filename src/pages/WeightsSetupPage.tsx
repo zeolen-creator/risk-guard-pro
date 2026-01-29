@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useConsequences } from "@/hooks/useHazards";
 import { useSaveConsequenceWeights, useConsequenceWeightsMap } from "@/hooks/useConsequenceWeights";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -30,11 +31,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, AlertCircle, Loader2, Check, Scale, Lock, Edit, Save, Eye, Wand2, ArrowRight } from "lucide-react";
+import { Shield, AlertCircle, Loader2, Check, Scale, Lock, Edit, Save, Eye, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import WeightingSessionsContent from "@/components/settings/WeightingSessionsContent";
 
 export default function WeightsSetupPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { data: consequences = [], isLoading: consequencesLoading } = useConsequences();
   const { data: existingWeights = {}, isLoading: weightsLoading } = useConsequenceWeightsMap();
@@ -50,6 +53,7 @@ export default function WeightsSetupPage() {
   const [isEditMode, setIsEditMode] = useState(false);
 
   const isFirstTimeSetup = !organization?.weights_configured;
+  const activeTab = searchParams.get("tab") || "simple";
 
   // Initialize weights from existing or default
   useEffect(() => {
@@ -183,7 +187,7 @@ export default function WeightsSetupPage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
+      <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
             <Scale className="h-8 w-8 text-primary" />
@@ -193,55 +197,50 @@ export default function WeightsSetupPage() {
           </h1>
           <p className="text-muted-foreground">
             {isFirstTimeSetup
-              ? "Before creating assessments, set how important each consequence type is to your organization. These weights will apply to all future risk assessments."
-              : isEditMode
-              ? "Update how your organization weighs each consequence type. Changes will apply to future assessments only."
-              : "View how your organization weighs each consequence type in risk assessments."}
+              ? "Before creating assessments, set how important each consequence type is to your organization."
+              : "Manage how your organization weighs each consequence type in risk assessments."}
           </p>
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {isEditMode ? (
+        {isFirstTimeSetup ? (
+          // First time setup - show simple editor only
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
                     <Edit className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                  Consequence Weights
-                </CardTitle>
-                <CardDescription>
-                  {isEditMode ? "Distribute 100% across all consequences" : "Current weight distribution"}
-                </CardDescription>
+                    Set Initial Weights
+                  </CardTitle>
+                  <CardDescription>
+                    Distribute 100% across all consequences
+                  </CardDescription>
+                </div>
+                <Badge
+                  variant={isValidWeight ? "default" : "destructive"}
+                  className="text-sm"
+                >
+                  Total: {totalWeight}%
+                </Badge>
               </div>
-              <Badge
-                variant={isValidWeight ? "default" : "destructive"}
-                className="text-sm"
-              >
-                Total: {totalWeight}%
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-3 pr-4">
-                {consequences.map((consequence) => (
-                  <div
-                    key={consequence.id}
-                    className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 border"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <Label className="text-sm font-medium">
-                        {consequence.category_number}. {consequence.category}
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {consequence.description}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isEditMode ? (
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-3 pr-4">
+                  {consequences.map((consequence) => (
+                    <div
+                      key={consequence.id}
+                      className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 border"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <Label className="text-sm font-medium">
+                          {consequence.category_number}. {consequence.category}
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {consequence.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <Input
                           type="number"
                           min={0}
@@ -255,94 +254,176 @@ export default function WeightsSetupPage() {
                           }
                           className="w-20 text-center"
                         />
-                      ) : (
-                        <div className="w-20 h-9 flex items-center justify-center bg-background rounded-md border text-sm font-medium">
-                          {weights[consequence.id] || 0}
-                        </div>
-                      )}
-                      <span className="text-sm text-muted-foreground w-4">%</span>
+                        <span className="text-sm text-muted-foreground w-4">%</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-
-            {isEditMode && !isValidWeight && (
-              <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-destructive/10 text-destructive">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm">
-                  Weights must sum to exactly 100% (currently {totalWeight}%)
-                </span>
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-end gap-3 pt-4 border-t">
-            {isEditMode ? (
-              <>
-                {!isFirstTimeSetup && (
-                  <Button variant="outline" onClick={handleCancel}>
-                    Cancel
-                  </Button>
-                )}
-                <Button
-                  onClick={handleSave}
-                  disabled={!isValidWeight || saveWeights.isPending}
-                >
-                  {saveWeights.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  {isFirstTimeSetup ? "Save & Continue" : "Save Weights"}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" asChild>
-                  <Link to="/dashboard">Back to Dashboard</Link>
-                </Button>
-                {isAdmin && (
-                  <Button onClick={handleEditClick}>
-                    <Lock className="mr-2 h-4 w-4" />
-                    Edit Weights
-                  </Button>
-                )}
-              </>
-            )}
-          </CardFooter>
-        </Card>
-
-        {/* Advanced Weighting Wizard Link */}
-        {isAdmin && !isFirstTimeSetup && (
-          <Card className="mt-6 border-primary/20 bg-primary/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Wand2 className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Advanced Weighting Methodology</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Use our 6-layer AI-powered wizard for scientifically justified weights
-                    </p>
-                  </div>
+                  ))}
                 </div>
-                <Button asChild>
-                  <Link to="/settings/weights/sessions">
-                    Open Wizard
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </ScrollArea>
 
-        {!isAdmin && !isFirstTimeSetup && (
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Only administrators can modify consequence weights.
-          </p>
+              {!isValidWeight && (
+                <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-destructive/10 text-destructive">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">
+                    Weights must sum to exactly 100% (currently {totalWeight}%)
+                  </span>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                onClick={handleSave}
+                disabled={!isValidWeight || saveWeights.isPending}
+              >
+                {saveWeights.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save & Continue
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : (
+          // Tabbed interface for existing users
+          <Tabs 
+            value={activeTab} 
+            onValueChange={(value) => setSearchParams({ tab: value })}
+            className="w-full"
+          >
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6">
+              <TabsTrigger value="simple" className="flex items-center gap-2">
+                <Scale className="h-4 w-4" />
+                Simple Weights
+              </TabsTrigger>
+              <TabsTrigger value="wizard" className="flex items-center gap-2">
+                <Wand2 className="h-4 w-4" />
+                Advanced Wizard
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="simple">
+              <Card className="max-w-2xl mx-auto">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {isEditMode ? (
+                          <Edit className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                        Consequence Weights
+                      </CardTitle>
+                      <CardDescription>
+                        {isEditMode ? "Distribute 100% across all consequences" : "Current weight distribution"}
+                      </CardDescription>
+                    </div>
+                    <Badge
+                      variant={isValidWeight ? "default" : "destructive"}
+                      className="text-sm"
+                    >
+                      Total: {totalWeight}%
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-3 pr-4">
+                      {consequences.map((consequence) => (
+                        <div
+                          key={consequence.id}
+                          className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 border"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <Label className="text-sm font-medium">
+                              {consequence.category_number}. {consequence.category}
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {consequence.description}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isEditMode ? (
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={weights[consequence.id] || 0}
+                                onChange={(e) =>
+                                  handleWeightChange(
+                                    consequence.id,
+                                    parseInt(e.target.value) || 0
+                                  )
+                                }
+                                className="w-20 text-center"
+                              />
+                            ) : (
+                              <div className="w-20 h-9 flex items-center justify-center bg-background rounded-md border text-sm font-medium">
+                                {weights[consequence.id] || 0}
+                              </div>
+                            )}
+                            <span className="text-sm text-muted-foreground w-4">%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+
+                  {isEditMode && !isValidWeight && (
+                    <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-destructive/10 text-destructive">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-sm">
+                        Weights must sum to exactly 100% (currently {totalWeight}%)
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-end gap-3 pt-4 border-t">
+                  {isEditMode ? (
+                    <>
+                      <Button variant="outline" onClick={handleCancel}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSave}
+                        disabled={!isValidWeight || saveWeights.isPending}
+                      >
+                        {saveWeights.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="mr-2 h-4 w-4" />
+                        )}
+                        Save Weights
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" asChild>
+                        <Link to="/dashboard">Back to Dashboard</Link>
+                      </Button>
+                      {isAdmin && (
+                        <Button onClick={handleEditClick}>
+                          <Lock className="mr-2 h-4 w-4" />
+                          Edit Weights
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </CardFooter>
+              </Card>
+
+              {!isAdmin && (
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  Only administrators can modify consequence weights.
+                </p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="wizard">
+              <WeightingSessionsContent />
+            </TabsContent>
+          </Tabs>
         )}
       </main>
 
