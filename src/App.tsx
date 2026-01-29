@@ -17,6 +17,7 @@ import EditAssessmentPage from "./pages/EditAssessmentPage";
 import WeightsSetupPage from "./pages/WeightsSetupPage";
 import AssessmentHistoryPage from "./pages/AssessmentHistoryPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import AssessmentComparisonPage from "./pages/AssessmentComparisonPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/settings/weights" element={<ProtectedRoute><WeightsSetupPage /></ProtectedRoute>} />
             <Route path="/assessments/history" element={<ProtectedRoute><AssessmentHistoryPage /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+            <Route path="/assessments/compare" element={<ProtectedRoute><AssessmentComparisonPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
