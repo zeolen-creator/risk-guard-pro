@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useHazards } from "@/hooks/useHazards";
+import { useHazardInfoSheets } from "@/hooks/useHazardInfoSheets";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { HazardInfoSheetDialog } from "@/components/features/hazards/HazardInfoSheetDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Shield,
   Search,
@@ -14,12 +16,24 @@ import {
   AlertTriangle,
   Loader2,
   BookOpen,
+  FileText,
 } from "lucide-react";
 
 export default function HazardsLibraryPage() {
   const { data: hazards, isLoading } = useHazards();
+  const { data: infoSheets } = useHazardInfoSheets();
   const [searchQuery, setSearchQuery] = useState("");
   const [infoSheetHazard, setInfoSheetHazard] = useState<string | null>(null);
+
+  // Create a Set of hazard names that have info sheets for quick lookup
+  const hazardsWithInfoSheets = useMemo(() => {
+    if (!infoSheets) return new Set<string>();
+    return new Set(infoSheets.map(sheet => sheet.hazard_name.toLowerCase()));
+  }, [infoSheets]);
+
+  const hasInfoSheet = (hazardName: string) => {
+    return hazardsWithInfoSheets.has(hazardName.toLowerCase());
+  };
 
   const filteredHazards = hazards?.filter((category) => {
     const matchesCategory = category.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -127,16 +141,36 @@ export default function HazardsLibraryPage() {
                         </p>
                       )}
                       <div className="pl-11 flex flex-wrap gap-2">
-                        {category.hazards_list.map((hazard, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="secondary"
-                            className="text-sm font-normal cursor-pointer hover:bg-secondary/80"
-                            onClick={() => setInfoSheetHazard(hazard)}
-                          >
-                            {highlightMatch(hazard)}
-                          </Badge>
-                        ))}
+                        {category.hazards_list.map((hazard, idx) => {
+                          const hasSheet = hasInfoSheet(hazard);
+                          return (
+                            <TooltipProvider key={idx}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="secondary"
+                                    className={`text-sm font-normal cursor-pointer hover:bg-secondary/80 ${
+                                      hasSheet 
+                                        ? "border-primary/50 bg-primary/10" 
+                                        : "opacity-70"
+                                    }`}
+                                    onClick={() => setInfoSheetHazard(hazard)}
+                                  >
+                                    {hasSheet && (
+                                      <FileText className="h-3 w-3 mr-1 text-primary" />
+                                    )}
+                                    {highlightMatch(hazard)}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {hasSheet 
+                                    ? "Click to view detailed info sheet" 
+                                    : "No info sheet available yet"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })}
                       </div>
                       
                       {/* Learn More Button */}
@@ -150,7 +184,6 @@ export default function HazardsLibraryPage() {
                           Learn More About {category.category}
                         </Button>
                       </div>
-                      
                       {category.tags.length > 0 && (
                         <div className="pl-11 mt-4 flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">Tags:</span>
