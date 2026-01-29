@@ -107,7 +107,7 @@ export function Layer3ScenarioValidator({
           .select('*')
           .eq('industry', industryId)
           .eq('is_active', true)
-          .order('scenario_order')
+          .order('created_at')
           .limit(4);
 
         if (error) throw error;
