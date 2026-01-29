@@ -189,6 +189,12 @@ export default function WeightingWizardPage() {
     }
   };
 
+  const handleLayerClick = (layer: number) => {
+    if (layer >= 1 && layer <= 6) {
+      setCurrentLayer(layer);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -286,6 +292,7 @@ export default function WeightingWizardPage() {
       layerCompleted={layerCompleted}
       onNext={showNextButton ? handleNext : undefined}
       onBack={handleBack}
+      onLayerClick={handleLayerClick}
       isNextDisabled={isNextDisabled()}
       isProcessing={isProcessing || updateSession.isPending}
     >

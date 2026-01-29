@@ -14,6 +14,7 @@ interface WeightingWizardLayoutProps {
   onNext?: () => void;
   onBack?: () => void;
   onCancel?: () => void;
+  onLayerClick?: (layer: number) => void;
   isNextDisabled?: boolean;
   isProcessing?: boolean;
   nextLabel?: string;
@@ -27,6 +28,7 @@ export function WeightingWizardLayout({
   onNext,
   onBack,
   onCancel,
+  onLayerClick,
   isNextDisabled = false,
   isProcessing = false,
   nextLabel,
@@ -80,10 +82,12 @@ export function WeightingWizardLayout({
           {/* Layer Indicators */}
           <div className="flex items-center justify-between mt-4 gap-2">
             {WIZARD_LAYERS.map((layer, idx) => (
-              <div
+              <button
                 key={layer.id}
+                type="button"
+                onClick={() => onLayerClick?.(layer.id)}
                 className={cn(
-                  "flex-1 text-center",
+                  "flex-1 text-center cursor-pointer hover:opacity-80 transition-opacity",
                   idx < WIZARD_LAYERS.length - 1 && "relative"
                 )}
               >
@@ -107,7 +111,7 @@ export function WeightingWizardLayout({
                 <p className="text-xs text-muted-foreground hidden lg:block">
                   {layer.description}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
         </div>
