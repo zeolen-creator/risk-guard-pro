@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart3, Users, TrendingUp, AlertTriangle, Loader2 } from "lucide-react";
@@ -22,6 +21,20 @@ interface BenchmarkData {
   percentile: number;
 }
 
+interface IndustryBenchmarkRow {
+  sample_size: number;
+  avg_fatalities_weight: number | null;
+  avg_injuries_weight: number | null;
+  avg_displacement_weight: number | null;
+  avg_psychosocial_weight: number | null;
+  avg_support_system_weight: number | null;
+  avg_property_damage_weight: number | null;
+  avg_infrastructure_weight: number | null;
+  avg_environmental_weight: number | null;
+  avg_economic_impact_weight: number | null;
+  avg_reputational_weight: number | null;
+}
+
 export function BenchmarkComparison({
   organizationId,
   industryType,
@@ -35,7 +48,6 @@ export function BenchmarkComparison({
 
   useEffect(() => {
     async function checkOptIn() {
-      // Check if org has opted into benchmarking
       const { data: participation } = await supabase
         .from('benchmark_participation')
         .select('opted_in')
@@ -51,33 +63,35 @@ export function BenchmarkComparison({
   const loadBenchmarks = async () => {
     setIsLoading(true);
     try {
-      // Get industry benchmarks - use explicit type
-      const { data: benchmarks, error } = await supabase
+      // Cast to any to avoid TS2589: Type instantiation is excessively deep
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabaseAny = supabase as any;
+      const response = await supabaseAny
         .from('weighting_industry_benchmarks')
-        .select('*')
+        .select('sample_size, avg_fatalities_weight, avg_injuries_weight, avg_displacement_weight, avg_psychosocial_weight, avg_support_system_weight, avg_property_damage_weight, avg_infrastructure_weight, avg_environmental_weight, avg_economic_impact_weight, avg_reputational_weight')
         .eq('industry_id', industryType.toLowerCase())
         .maybeSingle();
 
-      if (error) throw error;
+      if (response.error) throw response.error;
+
+      const benchmarks: IndustryBenchmarkRow | null = response.data;
 
       if (benchmarks) {
         setPeerCount(benchmarks.sample_size || 0);
 
-        // Map the individual weight columns to a weights object
         const avgWeights: Record<string, number> = {
-          Fatalities: benchmarks.avg_fatalities_weight || 10,
-          Injuries: benchmarks.avg_injuries_weight || 10,
-          Displacement: benchmarks.avg_displacement_weight || 10,
-          Psychosocial_Impact: benchmarks.avg_psychosocial_weight || 10,
-          Support_System_Impact: benchmarks.avg_support_system_weight || 10,
-          Property_Damage: benchmarks.avg_property_damage_weight || 10,
-          Infrastructure_Impact: benchmarks.avg_infrastructure_weight || 10,
-          Environmental_Damage: benchmarks.avg_environmental_weight || 10,
-          Economic_Impact: benchmarks.avg_economic_impact_weight || 10,
-          Reputational_Impact: benchmarks.avg_reputational_weight || 10,
+          Fatalities: benchmarks.avg_fatalities_weight ?? 10,
+          Injuries: benchmarks.avg_injuries_weight ?? 10,
+          Displacement: benchmarks.avg_displacement_weight ?? 10,
+          Psychosocial_Impact: benchmarks.avg_psychosocial_weight ?? 10,
+          Support_System_Impact: benchmarks.avg_support_system_weight ?? 10,
+          Property_Damage: benchmarks.avg_property_damage_weight ?? 10,
+          Infrastructure_Impact: benchmarks.avg_infrastructure_weight ?? 10,
+          Environmental_Damage: benchmarks.avg_environmental_weight ?? 10,
+          Economic_Impact: benchmarks.avg_economic_impact_weight ?? 10,
+          Reputational_Impact: benchmarks.avg_reputational_weight ?? 10,
         };
 
-        // Estimate min/max as ±30% of average (simplified)
         const minWeights: Record<string, number> = {};
         const maxWeights: Record<string, number> = {};
         for (const [key, avg] of Object.entries(avgWeights)) {
@@ -85,7 +99,7 @@ export function BenchmarkComparison({
           maxWeights[key] = avg * 1.3;
         }
 
-        const data: BenchmarkData[] = Object.entries(weights).map(([consequence, weight]) => ({
+        const mappedData: BenchmarkData[] = Object.entries(weights).map(([consequence, weight]) => ({
           consequence,
           orgWeight: weight,
           industryAvg: avgWeights[consequence] || 10,
@@ -94,7 +108,7 @@ export function BenchmarkComparison({
           percentile: calculatePercentile(weight, avgWeights[consequence] || 10),
         }));
 
-        setBenchmarkData(data.sort((a, b) => b.orgWeight - a.orgWeight));
+        setBenchmarkData(mappedData.sort((a, b) => b.orgWeight - a.orgWeight));
       }
 
       toast({
@@ -260,15 +274,15 @@ export function BenchmarkComparison({
 
       {/* Outlier Warning */}
       {benchmarkData.some(d => d.percentile >= 90 || d.percentile <= 10) && (
-        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
+        <Card className="border-warning bg-warning/10">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-warning" />
               <div>
-                <h4 className="font-medium text-amber-700 dark:text-amber-400">
+                <h4 className="font-medium text-warning-foreground">
                   Significant Deviation Detected
                 </h4>
-                <p className="text-sm text-amber-600 dark:text-amber-300 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Some of your weights differ significantly from industry peers.
                   This may be intentional based on your organization's unique context,
                   but consider documenting the rationale.
