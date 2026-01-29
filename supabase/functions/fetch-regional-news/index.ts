@@ -89,40 +89,114 @@ const CATEGORY_FEEDS = {
   ],
 };
 
-// Industry-specific keyword mapping
+// GLOBAL NEWS SOURCES - For industries that need international monitoring
+const GLOBAL_FEEDS: Record<string, { name: string; url: string; category: string }[]> = {
+  // Healthcare: Disease outbreaks, WHO alerts, medical recalls
+  healthcare: [
+    { name: "WHO Disease Outbreak News", url: "https://www.who.int/feeds/entity/csr/don/en/rss.xml", category: "health" },
+    { name: "CDC Health Alert Network", url: "https://tools.cdc.gov/api/v2/resources/media/rss/health_advisory.rss", category: "health" },
+    { name: "Reuters Health", url: "https://www.reutersagency.com/feed/?best-topics=health&post_type=best", category: "health" },
+    { name: "Health Canada Recalls", url: "https://recalls-rappels.canada.ca/en/feed/recent/health-products", category: "health" },
+    { name: "FDA Recalls", url: "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/medical-device-recalls/rss.xml", category: "health" },
+  ],
+  // Financial Services: Global economic news, market alerts
+  financial: [
+    { name: "Reuters Business", url: "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best", category: "financial" },
+    { name: "Financial Times World", url: "https://www.ft.com/world?format=rss", category: "financial" },
+    { name: "Bank of Canada", url: "https://www.bankofcanada.ca/rss/press-releases/", category: "regulatory" },
+    { name: "Bloomberg Markets", url: "https://feeds.bloomberg.com/markets/news.rss", category: "financial" },
+  ],
+  // Manufacturing: Supply chain, industrial safety, global trade
+  manufacturing: [
+    { name: "Reuters Supply Chain", url: "https://www.reutersagency.com/feed/?best-topics=supply-chain&post_type=best", category: "supply_chain" },
+    { name: "Industry Week", url: "https://www.industryweek.com/rss.xml", category: "supply_chain" },
+  ],
+  // Technology/Cyber: Global cyber threats, data breaches
+  technology: [
+    { name: "Krebs on Security", url: "https://krebsonsecurity.com/feed/", category: "cyber" },
+    { name: "The Hacker News", url: "https://feeds.feedburner.com/TheHackersNews", category: "cyber" },
+    { name: "CISA Alerts", url: "https://www.cisa.gov/uscert/ncas/alerts.xml", category: "cyber" },
+  ],
+  // Energy: Global energy markets, infrastructure
+  energy: [
+    { name: "Reuters Energy", url: "https://www.reutersagency.com/feed/?best-topics=energy&post_type=best", category: "infrastructure" },
+    { name: "Oil Price", url: "https://oilprice.com/rss/main", category: "financial" },
+  ],
+};
+
+// Industry type to global feed category mapping
+const INDUSTRY_GLOBAL_MAPPING: Record<string, string[]> = {
+  // Healthcare industries
+  "Acute Care Hospital": ["healthcare", "technology"],
+  "Pediatric Hospital": ["healthcare", "technology"],
+  "Long-Term Care": ["healthcare"],
+  "Community Health Center": ["healthcare"],
+  "Mental Health Facility": ["healthcare"],
+  "Research Hospital": ["healthcare", "technology"],
+  "Emergency Services": ["healthcare"],
+  "Pharmaceutical Manufacturing": ["healthcare", "manufacturing"],
+  "Medical Device Manufacturing": ["healthcare", "manufacturing", "technology"],
+  // Financial industries
+  "Banking": ["financial", "technology"],
+  "Insurance": ["financial"],
+  // Manufacturing
+  "Chemical Manufacturing": ["manufacturing"],
+  "Food Processing": ["healthcare", "manufacturing"],
+  // Energy
+  "Electric Utility": ["energy", "technology"],
+  "Oil & Gas": ["energy"],
+  "Water Utility": ["energy"],
+  // Default sector mappings (used as fallback when industry_type doesn't match)
+  "Healthcare": ["healthcare", "technology"],
+  "Financial Services": ["financial", "technology"],
+  "Manufacturing": ["manufacturing"],
+  "Energy": ["energy"],
+  "Technology": ["technology"],
+  "Government": ["technology"],
+  "Education": ["technology"],
+};
+
+// Industry-specific keyword mapping (enhanced)
 const INDUSTRY_KEYWORDS: Record<string, string[]> = {
   Healthcare: [
     "hospital", "patient", "clinic", "healthcare", "medical", "doctor",
     "nurse", "outbreak", "disease", "pandemic", "health system", "emergency room",
+    "virus", "infection", "epidemic", "vaccination", "vaccine", "drug recall",
+    "medication", "FDA", "Health Canada", "WHO", "CDC", "ventilator", "ICU",
+    "pediatric", "children", "infant", "RSV", "measles", "flu", "influenza",
   ],
   "Financial Services": [
     "bank", "banking", "financial", "credit", "loan", "atm",
-    "fraud", "fintech", "mortgage", "investment", "market",
+    "fraud", "fintech", "mortgage", "investment", "market", "stock",
+    "interest rate", "inflation", "recession", "central bank", "OSFI",
+    "cyber attack", "data breach", "ransomware",
   ],
   Manufacturing: [
     "factory", "plant", "production", "supply chain", "manufacturing",
-    "assembly", "warehouse", "logistics", "industrial",
+    "assembly", "warehouse", "logistics", "industrial", "OSHA", "workplace safety",
+    "recall", "contamination", "quality control", "tariff", "trade",
   ],
   Technology: [
     "tech", "software", "hardware", "data center", "cloud", "cyber", "IT",
-    "digital", "platform", "ransomware", "breach",
+    "digital", "platform", "ransomware", "breach", "vulnerability", "zero-day",
+    "phishing", "malware", "DDoS", "encryption",
   ],
   Education: [
     "school", "university", "college", "student", "education", "campus",
-    "academic", "teacher",
+    "academic", "teacher", "lockdown", "threat",
   ],
   Government: [
     "government", "municipal", "federal", "provincial", "public service",
-    "ministry", "department",
+    "ministry", "department", "policy", "regulation", "legislation",
   ],
-  Retail: ["store", "retail", "shopping", "consumer", "sales", "merchandise", "mall"],
+  Retail: ["store", "retail", "shopping", "consumer", "sales", "merchandise", "mall", "theft", "shoplifting"],
   Transportation: [
     "transit", "transport", "airline", "rail", "shipping", "logistics",
-    "freight",
+    "freight", "FAA", "Transport Canada",
   ],
   "Energy & Utilities": [
     "power", "electricity", "gas", "utility", "energy", "grid",
-    "outage", "hydro",
+    "outage", "hydro", "pipeline", "refinery", "NERC",
   ],
   Construction: [
     "construction", "building", "contractor", "site", "development",
@@ -307,8 +381,14 @@ function calculateRelevance(
 ): number {
   let score = 0;
   const text = (item.title + " " + item.description).toLowerCase();
+  const isGlobalItem = item.isGlobal === true;
 
-  // Check city match (high priority)
+  // For global items, start with a base score so they don't get filtered out
+  if (isGlobalItem) {
+    score += 30; // Base score for global industry-relevant items
+  }
+
+  // Check city match (high priority for local news)
   const city = org.primary_location?.split(",")[0]?.trim()?.toLowerCase();
   if (city && text.includes(city)) {
     score += 50;
@@ -321,11 +401,27 @@ function calculateRelevance(
     score += 30;
   }
 
-  // Check industry keywords
-  const industryKeywords = INDUSTRY_KEYWORDS[org.industry_type] || [];
+  // Check Canada-wide relevance
+  if (text.includes("canada") || text.includes("canadian")) {
+    score += 20;
+  }
+
+  // Check industry keywords (HIGHER PRIORITY - this is the key fix)
+  const industryKeywords = INDUSTRY_KEYWORDS[org.industry_type] || INDUSTRY_KEYWORDS[org.sector] || [];
+  let industryMatchCount = 0;
   industryKeywords.forEach((keyword) => {
-    if (text.includes(keyword.toLowerCase())) score += 10;
+    if (text.includes(keyword.toLowerCase())) {
+      score += 15; // Increased from 10
+      industryMatchCount++;
+    }
   });
+  
+  // Bonus for multiple industry keyword matches
+  if (industryMatchCount >= 3) {
+    score += 25;
+  } else if (industryMatchCount >= 2) {
+    score += 15;
+  }
 
   // Check custom keywords (highest priority for custom matches)
   const customKeywords = org.news_settings?.custom_keywords || [];
@@ -342,6 +438,9 @@ function calculateRelevance(
     "extreme", "dangerous", "critical", "severe", "major", "breaking",
     "transit", "delay", "cancelled", "suspended", "road", "highway",
     "accident", "crash", "incident", "crisis", "blackout", "outage",
+    "outbreak", "pandemic", "epidemic", "virus", "infection", // Health emergencies
+    "vulnerability", "exploit", "zero-day", "ransomware", // Cyber threats
+    "supply chain", "shortage", "disruption", // Supply chain
   ];
   riskKeywords.forEach((keyword) => {
     if (text.includes(keyword)) score += 15;
@@ -476,7 +575,7 @@ Deno.serve(async (req) => {
     // Get all organizations with news enabled and Canadian region
     const { data: orgs, error: orgError } = await supabase
       .from("organizations")
-      .select("id, name, primary_location, industry_type, news_settings, region")
+      .select("id, name, primary_location, industry_type, sector, news_settings, region")
       .ilike("region", "%canada%");
 
     if (orgError) {
@@ -522,31 +621,51 @@ Deno.serve(async (req) => {
           console.log(`Found ${feedData.weather_alerts.length} weather alerts`);
         }
 
-        // 2. Fetch news from province-specific feeds + category feeds
+        // 2. Fetch news from province-specific feeds + category feeds + GLOBAL feeds
         const allNewsItems: any[] = [];
         const enabledCategories = org.news_settings?.categories || {};
         
         // Get province-specific feeds (if available)
         const regionFeeds = provinceCode ? (NEWS_FEEDS_BY_REGION[provinceCode] || []) : [];
         
-        // Combine province-specific feeds with category feeds
+        // Determine which global feeds to include based on industry
+        const industryType = org.industry_type || "";
+        const sector = org.sector || "";
+        const globalFeedCategories = INDUSTRY_GLOBAL_MAPPING[industryType] || INDUSTRY_GLOBAL_MAPPING[sector] || [];
+        
+        // Collect global feeds for this industry
+        const globalFeeds: { name: string; url: string; category: string }[] = [];
+        for (const feedCategory of globalFeedCategories) {
+          const feeds = GLOBAL_FEEDS[feedCategory] || [];
+          globalFeeds.push(...feeds);
+        }
+        
+        console.log(`Industry: ${industryType || sector || 'unknown'} - Including ${globalFeeds.length} global feeds`);
+        
+        // Combine province-specific feeds with category feeds AND global feeds
         const allFeeds = [
           ...regionFeeds,
           ...CATEGORY_FEEDS.business,
           ...CATEGORY_FEEDS.health,
           ...CATEGORY_FEEDS.technology,
           ...CATEGORY_FEEDS.politics,
+          ...globalFeeds, // Add global feeds for industry-specific monitoring
         ];
         
-        console.log(`Using ${regionFeeds.length} province-specific feeds for ${provinceCode || 'unknown province'}`);
+        console.log(`Using ${regionFeeds.length} province feeds + ${globalFeeds.length} global feeds for ${provinceCode || 'unknown province'}`);
 
         for (const feed of allFeeds) {
-          const newsItems = await fetchRSS(feed.url, feed.name);
-          // Attach feed category hint to items
-          newsItems.forEach(item => {
-            item.feedCategory = feed.category;
-          });
-          allNewsItems.push(...newsItems);
+          try {
+            const newsItems = await fetchRSS(feed.url, feed.name);
+            // Attach feed category hint and global flag to items
+            newsItems.forEach(item => {
+              item.feedCategory = feed.category;
+              item.isGlobal = globalFeeds.some(gf => gf.url === feed.url);
+            });
+            allNewsItems.push(...newsItems);
+          } catch (feedError) {
+            console.warn(`Failed to fetch feed ${feed.name}: ${feedError instanceof Error ? feedError.message : 'Unknown error'}`);
+          }
         }
 
         console.log(`Fetched ${allNewsItems.length} total news items`);
