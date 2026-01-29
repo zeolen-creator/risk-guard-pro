@@ -101,6 +101,14 @@ export default function WeightingWizardPage() {
         case 1:
           // Save questionnaire responses
           if (questionnaireData) {
+            // Map geographic risk to allowed risk_tolerance values
+            const riskToleranceMap: Record<string, string> = {
+              low: "conservative",
+              moderate: "balanced",
+              high: "pragmatic",
+            };
+            const riskTolerance = riskToleranceMap[questionnaireData.geographic_risk || "moderate"] || "balanced";
+
             // Save to weighting_questionnaire_responses table
             const { error } = await supabase
               .from("weighting_questionnaire_responses")
@@ -110,7 +118,7 @@ export default function WeightingWizardPage() {
                 primary_stakeholders: { priority: questionnaireData.stakeholder_priority },
                 primary_mandate: [questionnaireData.org_size],
                 regulatory_environment: [questionnaireData.regulatory_environment],
-                risk_tolerance: questionnaireData.geographic_risk,
+                risk_tolerance: riskTolerance,
                 budget_allocation_priority: questionnaireData.public_facing ? "public_safety" : "operations",
                 hardest_to_recover_consequence: "Reputational",
                 past_major_incident: questionnaireData.previous_incidents?.[0] || null,
