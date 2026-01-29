@@ -103,7 +103,7 @@ export function Layer1Questionnaire({ initialData, onChange }: Layer1Questionnai
             ].map((option) => (
               <Label
                 key={option.value}
-                className="flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5"
+                className={`flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${formData.org_size === option.value ? 'border-primary bg-primary/5' : ''}`}
               >
                 <RadioGroupItem value={option.value} className="sr-only" />
                 <span className="font-medium">{option.label}</span>
@@ -131,11 +131,11 @@ export function Layer1Questionnaire({ initialData, onChange }: Layer1Questionnai
             onValueChange={(v) => updateField("public_facing", v === "yes")}
             className="flex gap-4"
           >
-            <Label className="flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5">
+            <Label className={`flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${formData.public_facing ? 'border-primary bg-primary/5' : ''}`}>
               <RadioGroupItem value="yes" />
               <span>Yes, we serve the public directly</span>
             </Label>
-            <Label className="flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5">
+            <Label className={`flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${!formData.public_facing ? 'border-primary bg-primary/5' : ''}`}>
               <RadioGroupItem value="no" />
               <span>No, primarily B2B or internal</span>
             </Label>
@@ -160,11 +160,11 @@ export function Layer1Questionnaire({ initialData, onChange }: Layer1Questionnai
             onValueChange={(v) => updateField("critical_infrastructure", v === "yes")}
             className="flex gap-4"
           >
-            <Label className="flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5">
+            <Label className={`flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${formData.critical_infrastructure ? 'border-primary bg-primary/5' : ''}`}>
               <RadioGroupItem value="yes" />
               <span>Yes, critical infrastructure</span>
             </Label>
-            <Label className="flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5">
+            <Label className={`flex items-center gap-2 p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${!formData.critical_infrastructure ? 'border-primary bg-primary/5' : ''}`}>
               <RadioGroupItem value="no" />
               <span>No, not critical infrastructure</span>
             </Label>
@@ -197,7 +197,7 @@ export function Layer1Questionnaire({ initialData, onChange }: Layer1Questionnai
             ].map((option) => (
               <Label
                 key={option.value}
-                className="flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5"
+                className={`flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${formData.regulatory_environment === option.value ? 'border-primary bg-primary/5' : ''}`}
               >
                 <RadioGroupItem value={option.value} className="sr-only" />
                 <span className="font-medium">{option.label}</span>
@@ -232,7 +232,7 @@ export function Layer1Questionnaire({ initialData, onChange }: Layer1Questionnai
             ].map((option) => (
               <Label
                 key={option.value}
-                className="flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/5"
+                className={`flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${formData.geographic_risk === option.value ? 'border-primary bg-primary/5' : ''}`}
               >
                 <RadioGroupItem value={option.value} className="sr-only" />
                 <span className="font-medium">{option.label}</span>
