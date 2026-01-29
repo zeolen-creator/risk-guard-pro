@@ -24,6 +24,7 @@ import {
   Users,
   Scale,
   RefreshCw,
+  BookOpen,
 } from "lucide-react";
 import { Hazard } from "@/hooks/useHazards";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -35,6 +36,7 @@ import {
   HazardScore,
 } from "@/hooks/useHazardRecommendations";
 import { RegulatoryWarningDialog } from "@/components/features/assessment/RegulatoryWarningDialog";
+import { HazardInfoSheetDialog } from "@/components/features/hazards/HazardInfoSheetDialog";
 import { toast } from "sonner";
 
 interface HazardSelectionStepProps {
@@ -92,6 +94,7 @@ export function HazardSelectionStep({
     low: false,
   });
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [infoSheetHazard, setInfoSheetHazard] = useState<string | null>(null);
 
   const {
     data: recommendations,
@@ -291,6 +294,18 @@ export function HazardSelectionStep({
                 ))}
               </div>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                setInfoSheetHazard(hazard.category);
+              }}
+            >
+              <BookOpen className="h-4 w-4 mr-1" />
+              Learn More
+            </Button>
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -459,6 +474,13 @@ export function HazardSelectionStep({
           onCancel={handleCancelUncheck}
         />
       )}
+
+      {/* Hazard Info Sheet Dialog */}
+      <HazardInfoSheetDialog
+        open={!!infoSheetHazard}
+        onOpenChange={(open) => !open && setInfoSheetHazard(null)}
+        hazardName={infoSheetHazard}
+      />
     </div>
   );
 }
