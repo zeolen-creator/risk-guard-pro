@@ -64,10 +64,11 @@ export function Layer2AHPComparison({ onComplete, initialMatrix }: Layer2AHPComp
   const anchorIndices = useMemo(() => Array.from(groupedPairs.keys()), [groupedPairs]);
   
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
+  // Initialize matrix with 1s (Equally Important) for all pairs, not 0s
   const [matrix, setMatrix] = useState<number[][]>(() => {
     if (initialMatrix) return initialMatrix;
-    return CONSEQUENCE_NAMES.map((_, i) =>
-      CONSEQUENCE_NAMES.map((_, j) => (i === j ? 1 : 0))
+    return CONSEQUENCE_NAMES.map(() =>
+      CONSEQUENCE_NAMES.map(() => 1)
     );
   });
   const [showResults, setShowResults] = useState(false);
