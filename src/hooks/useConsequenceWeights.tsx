@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 export interface ConsequenceWeight {
   id: string;
@@ -58,13 +58,15 @@ export function useConsequenceWeights() {
   });
 }
 
+const EMPTY_WEIGHTS: ConsequenceWeight[] = [];
+
 export function useConsequenceWeightsMap() {
-  const { data: weights = [], ...rest } = useConsequenceWeights();
+  const { data: weights = EMPTY_WEIGHTS, ...rest } = useConsequenceWeights();
   
-  const weightsMap = weights.reduce<Record<string, number>>((acc, w) => {
+  const weightsMap = useMemo(() => weights.reduce<Record<string, number>>((acc, w) => {
     acc[w.consequence_id] = w.weight;
     return acc;
-  }, {});
+  }, {}), [weights]);
 
   return { data: weightsMap, weights, ...rest };
 }
@@ -84,32 +86,8 @@ export function useSaveConsequenceWeights() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Delete existing weights for this org
-      await supabase
-        .from("consequence_weights")
-        .delete()
-        .eq("org_id", profile.org_id);
-
-      // Insert new weights
-      const weightEntries = Object.entries(weights).map(([consequence_id, weight]) => ({
-        org_id: profile.org_id,
-        consequence_id,
-        weight,
-      }));
-
-      const { error } = await supabase
-        .from("consequence_weights")
-        .insert(weightEntries);
-
+      const { error } = await supabase.rpc("save_consequence_weights", { p_weights: weights });
       if (error) throw error;
-
-      // Mark organization as having weights configured
-      const { error: orgError } = await supabase
-        .from("organizations")
-        .update({ weights_configured: true })
-        .eq("id", profile.org_id);
-
-      if (orgError) throw orgError;
 
       return weights;
     },
