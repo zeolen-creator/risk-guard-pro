@@ -1,3 +1,4 @@
+import { validWeightTotal } from "../../supabase/functions/_shared/weights";
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useConsequences } from "@/hooks/useHazards";
@@ -88,7 +89,7 @@ export default function WeightsSetupPage() {
   };
 
   const totalWeight = Object.values(weights).reduce((sum, w) => sum + (w || 0), 0);
-  const isValidWeight = totalWeight === 100;
+  const isValidWeight = validWeightTotal(weights);
 
   const handleEditClick = () => {
     if (!isAdmin) {
