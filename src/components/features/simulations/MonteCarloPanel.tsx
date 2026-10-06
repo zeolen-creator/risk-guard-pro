@@ -44,8 +44,8 @@ export function MonteCarloPanel() {
       toast.success(
         `Simulation complete! Expected Annual Loss: $${result.results.eal_amount.toLocaleString()}`
       );
-    } catch {
-      toast.error("Simulation failed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Simulation failed");
     }
   };
 

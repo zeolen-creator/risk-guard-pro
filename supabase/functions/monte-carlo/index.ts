@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 6714)
+Total output lines: 714
+
 import { requireOrganization, requireOrgResource } from "../_shared/authorization.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -390,23 +393,7 @@ function runCompoundSimulation(templates: TemplateConfig[], iterations: number):
   console.log(`Data verification: ${zeroLossCount} zero-loss years (${zeroLossPct.toFixed(1)}%), ${nonZeroLosses.length} non-zero years`);
   
   // Use PERCENTILE-based thresholds from the NON-ZERO losses
-  // This ensures each threshold has a meaningfully different probability
-  let thresholds: number[] = [];
-  const probability_exceeds_threshold: Record<string, number> = {};
-  
-  if (nonZeroLosses.length > 0) {
-    nonZeroLosses.sort((a, b) => a - b);
-    const n = nonZeroLosses.length;
-    
-    // Select thresholds at specific percentiles of the NON-ZERO distribution
-    // These percentiles guarantee visually distinct probabilities
-    const percentileTargets = [
-      { pct: 10, label: '10th' },   // 90% of events exceed this
-      { pct: 25, label: '25th' },   // 75% of events exceed this
-      { pct: 50, label: '50th' },   // 50% of events exceed this (median)
-      { pct: 75, label: '75th' },   // 25% of events exceed this
-      { pct: 90, label: '90th' },   // 10% of events exceed this
-      { pct: 95, label: '95th' },   // 5% of events exceed this
+ …214 tokens truncated…// 5% of events exceed this
     ];
     
     const nonZeroRate = nonZeroLosses.length / iterations;
@@ -541,12 +528,13 @@ Deno.serve(async (req) => {
       const startTime = Date.now();
 
       const iterations = params.iterations || 100000;
-      const isMultiTemplate = params.templates && params.templates.length > 1;
+      const isMultiTemplate = Boolean(params.templates && params.templates.length > 1);
 
       let results;
       let templateIds: string[] = [];
       let combinationMethod = "single";
       let scenarioCount = 1;
+      let singleSimulationParams: SimulationParams | null = null;
 
       if (isMultiTemplate) {
         // Multi-template compound simulation
@@ -570,11 +558,15 @@ Deno.serve(async (req) => {
           if (template?.default_parameters) {
             const defaultParams = template.default_parameters as Record<string, unknown>;
             simulationParams = {
-              ...defaultParams,
               ...params,
-              frequency_distribution: params.frequency_distribution || defaultParams.frequency_distribution,
-              direct_cost_distribution: params.direct_cost_distribution || defaultParams.direct_cost_distribution,
-              indirect_cost_distribution: params.indirect_cost_distribution || defaultParams.indirect_cost_distribution,
+              frequency_distribution: params.frequency_distribution ||
+                (defaultParams.frequency_distribution ?? defaultParams.frequency) as DistributionParams,
+              direct_cost_distribution: params.direct_cost_distribution ||
+                (defaultParams.direct_cost_distribution ?? defaultParams.direct_cost) as DistributionParams,
+              indirect_cost_distribution: params.indirect_cost_distribution ||
+                (defaultParams.indirect_cost_distribution ?? defaultParams.indirect_cost) as DistributionParams,
+              downtime_distribution: params.downtime_distribution ||
+                (defaultParams.downtime_distribution ?? defaultParams.downtime) as DistributionParams | undefined,
             } as SimulationParams;
           }
           templateIds = [params.template_id];
@@ -590,6 +582,11 @@ Deno.serve(async (req) => {
           templateIds = [template.id];
         }
 
+        if (!simulationParams.frequency_distribution || !simulationParams.direct_cost_distribution || !simulationParams.indirect_cost_distribution) {
+          throw new Error("The selected template is missing required simulation assumptions.");
+        }
+
+        singleSimulationParams = simulationParams;
         results = runSingleSimulation({
           ...simulationParams,
           iterations,
@@ -609,10 +606,10 @@ Deno.serve(async (req) => {
         scenario_count: scenarioCount,
         iterations: iterations,
         time_horizon_years: params.time_horizon_years || 1,
-        frequency_distribution: isMultiTemplate ? params.templates[0].parameters.frequency_distribution : params.frequency_distribution,
-        direct_cost_distribution: isMultiTemplate ? params.templates[0].parameters.direct_cost_distribution : params.direct_cost_distribution,
-        indirect_cost_distribution: isMultiTemplate ? params.templates[0].parameters.indirect_cost_distribution : params.indirect_cost_distribution,
-        downtime_distribution: params.downtime_distribution || null,
+        frequency_distribution: isMultiTemplate ? params.templates[0].parameters.frequency_distribution : singleSimulationParams?.frequency_distribution,
+        direct_cost_distribution: isMultiTemplate ? params.templates[0].parameters.direct_cost_distribution : singleSimulationParams?.direct_cost_distribution,
+        indirect_cost_distribution: isMultiTemplate ? params.templates[0].parameters.indirect_cost_distribution : singleSimulationParams?.indirect_cost_distribution,
+        downtime_distribution: isMultiTemplate ? null : singleSimulationParams?.downtime_distribution || null,
         results: {
           sample: results.results,
           distribution: results.distribution,
