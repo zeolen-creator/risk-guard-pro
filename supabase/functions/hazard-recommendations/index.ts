@@ -1,3 +1,4 @@
+import { requireOrganization } from "../_shared/authorization.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.1";
 
 const corsHeaders = {
@@ -57,6 +58,9 @@ Deno.serve(async (req) => {
 
   const startTime = Date.now();
 
+  const access = await requireOrganization(req, corsHeaders);
+  if (access instanceof Response) return access;
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -92,6 +96,12 @@ Deno.serve(async (req) => {
         JSON.stringify({ success: false, error: "Missing required fields" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (org_context.id !== access.orgId) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log(`Processing ${hazards.length} hazards for org: ${org_context.name}`);
