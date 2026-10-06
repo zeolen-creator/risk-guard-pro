@@ -3715,10 +3715,57 @@ export type Database = {
         Args: { p_new_version: number; p_org_id: string }
         Returns: undefined
       }
+      approve_weighting_session: {
+        Args: {
+          p_expected_weights: Json
+          p_notes?: string
+          p_session_id: string
+        }
+        Returns: number
+      }
+      archive_active_weights: { Args: { p_org_id: string }; Returns: undefined }
       calculate_ahp_consistency_ratio: {
         Args: { matrix_data: Json }
         Returns: number
       }
+      consequence_weight_key: { Args: { label: string }; Returns: string }
+      create_organization: {
+        Args: {
+          p_description?: string
+          p_key_facilities?: string[]
+          p_name: string
+          p_primary_location?: string
+          p_region: string
+          p_sector: string
+          p_size?: string
+        }
+        Returns: {
+          created_at: string
+          description: string | null
+          id: string
+          industry_sub_sectors: string[] | null
+          industry_type: string | null
+          key_facilities: string[] | null
+          name: string
+          news_settings: Json | null
+          owner_id: string
+          primary_location: string | null
+          region: string
+          risk_appetite_config: Json | null
+          sector: string
+          size: string | null
+          updated_at: string
+          vulnerability_factors: Json | null
+          weights_configured: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_weighting_session: { Args: never; Returns: string }
       get_user_org_id: { Args: { _user_id: string }; Returns: string }
       has_org_role: {
         Args: {
@@ -3729,10 +3776,15 @@ export type Database = {
         Returns: boolean
       }
       release_stale_assignments: { Args: never; Returns: number }
+      save_consequence_weights: {
+        Args: { p_weights: Json }
+        Returns: undefined
+      }
       user_belongs_to_org: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
       }
+      validate_named_weights: { Args: { input: Json }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "member" | "viewer"

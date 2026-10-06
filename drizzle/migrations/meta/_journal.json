@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791303446794,
+      "tag": "0000_onboarding_org_access_and_weighting_activation",
+      "breakpoints": true
+    }
+  ]
+}
