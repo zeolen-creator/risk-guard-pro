@@ -58,47 +58,17 @@ export function useCreateOrganization() {
     mutationFn: async (org: Omit<Organization, "id" | "owner_id" | "created_at" | "updated_at" | "industry_type" | "industry_sub_sectors" | "news_settings">) => {
       if (!user?.id) throw new Error("Not authenticated");
 
-      // Create organization
-      const { data: orgData, error: orgError } = await supabase
-        .from("organizations")
-        .insert({
-          ...org,
-          owner_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (orgError) throw orgError;
-
-      // Update profile with org_id
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ org_id: orgData.id })
-        .eq("user_id", user.id);
-
-      if (profileError) throw profileError;
-
-      // Create admin role for user
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: user.id,
-          org_id: orgData.id,
-          role: "admin",
-        });
-
-      if (roleError) throw roleError;
-
-      // Create free subscription
-      const { error: subError } = await supabase
-        .from("subscriptions")
-        .insert({
-          org_id: orgData.id,
-          plan_type: "free",
-          assessments_limit: 1,
-        });
-
-      if (subError) throw subError;
+      // One transaction creates the organization, membership, admin role and plan.
+      const { data: orgData, error } = await supabase.rpc("create_organization", {
+        p_name: org.name,
+        p_sector: org.sector,
+        p_region: org.region,
+        p_size: org.size,
+        p_description: org.description,
+        p_primary_location: org.primary_location,
+        p_key_facilities: org.key_facilities,
+      });
+      if (error) throw error;
 
       return orgData;
     },
