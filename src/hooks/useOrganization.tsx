@@ -1,3 +1,4 @@
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -89,7 +90,7 @@ export function useUpdateOrganization() {
 
       const { data, error } = await supabase
         .from("organizations")
-        .update(updates as Record<string, unknown>)
+        .update(updates as TablesUpdate<"organizations">)
         .eq("id", profile.org_id)
         .select()
         .single();

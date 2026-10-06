@@ -147,7 +147,7 @@ export function useUpdateMitigation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<OrganizationMitigation> & { id: string }) => {
+    mutationFn: async ({ id, strategy: _strategy, ...updates }: Partial<OrganizationMitigation> & { id: string }) => {
       // Recalculate ROI if relevant fields changed
       let roi_score = updates.roi_score;
       if (updates.estimated_cost !== undefined || updates.expected_risk_reduction_percent !== undefined) {
