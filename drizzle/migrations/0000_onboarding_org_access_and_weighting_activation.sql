@@ -1,5 +1,85 @@
--- Keep AI decimal percentages intact in the table read by assessment scoring.
-ALTER TABLE public.consequence_weights ALTER COLUMN weight TYPE numeric(5,2);
+REVOKE INSERT, UPDATE ON public.profiles FROM PUBLIC, anon, authenticated;
+GRANT UPDATE (first_name, last_name, role_title, department, expertise)
+  ON public.profiles TO authenticated;
+REVOKE INSERT ON public.organizations FROM PUBLIC, anon, authenticated;
+REVOKE UPDATE ON public.organizations FROM PUBLIC, anon, authenticated;
+GRANT UPDATE (name, sector, region, size, description, weights_configured,
+  primary_location, key_facilities, industry_type, industry_sub_sectors,
+  news_settings, risk_appetite_config, vulnerability_factors)
+  ON public.organizations TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.create_organization(
+  p_name TEXT, p_sector TEXT, p_region TEXT,
+  p_size TEXT DEFAULT NULL, p_description TEXT DEFAULT NULL,
+  p_primary_location TEXT DEFAULT NULL, p_key_facilities TEXT[] DEFAULT NULL
+)
+RETURNS public.organizations
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_user UUID := auth.uid();
+  v_profile public.profiles;
+  v_org public.organizations;
+BEGIN
+  IF v_user IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
+  END IF;
+  IF coalesce(length(trim(p_name)), 0) < 2
+    OR coalesce(length(trim(p_sector)), 0) = 0
+    OR coalesce(length(trim(p_region)), 0) = 0 THEN
+    RAISE EXCEPTION 'Name, sector and region are required' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_user::text, 0));
+  INSERT INTO public.profiles (user_id) VALUES (v_user)
+    ON CONFLICT (user_id) DO NOTHING;
+  SELECT * INTO v_profile FROM public.profiles WHERE user_id = v_user FOR UPDATE;
+  IF v_profile.org_id IS NOT NULL THEN
+    SELECT * INTO v_org FROM public.organizations WHERE id = v_profile.org_id;
+    IF v_org.owner_id IS DISTINCT FROM v_user THEN
+      RAISE EXCEPTION 'Already a member of an organization' USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    SELECT * INTO v_org FROM public.organizations WHERE owner_id = v_user
+      ORDER BY created_at, id LIMIT 1 FOR UPDATE;
+    IF NOT FOUND THEN
+      INSERT INTO public.organizations
+        (name, sector, region, size, description, owner_id, primary_location, key_facilities)
+      VALUES (trim(p_name), trim(p_sector), trim(p_region), p_size, p_description,
+        v_user, p_primary_location, p_key_facilities)
+      RETURNING * INTO v_org;
+    END IF;
+  END IF;
+  UPDATE public.profiles SET org_id = v_org.id WHERE user_id = v_user;
+  INSERT INTO public.user_roles (user_id, org_id, role)
+    VALUES (v_user, v_org.id, 'admin')
+    ON CONFLICT (user_id, org_id) DO UPDATE SET role = 'admin';
+  INSERT INTO public.subscriptions (org_id, plan_type, assessments_limit)
+    SELECT v_org.id, 'free', 1
+    WHERE NOT EXISTS (SELECT 1 FROM public.subscriptions WHERE org_id = v_org.id);
+  RETURN v_org;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.create_organization(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_organization(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[]) TO authenticated;
+
+DO $$
+DECLARE t RECORD;
+BEGIN
+  FOR t IN SELECT c.table_name FROM information_schema.columns c
+    JOIN pg_tables p ON p.schemaname = c.table_schema AND p.tablename = c.table_name
+    WHERE c.table_schema = 'public' AND c.column_name = 'org_id'
+      AND p.rowsecurity AND c.table_name <> 'profiles'
+  LOOP
+    EXECUTE format(
+      'CREATE POLICY organization_boundary ON public.%I AS RESTRICTIVE FOR ALL TO authenticated '
+      || 'USING (org_id IS NULL OR public.user_belongs_to_org(auth.uid(), org_id)) '
+      || 'WITH CHECK (public.user_belongs_to_org(auth.uid(), org_id))', t.table_name);
+  END LOOP;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.release_stale_assignments() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.release_stale_assignments() TO service_role;
 
 CREATE FUNCTION public.consequence_weight_key(label text) RETURNS text
 LANGUAGE sql IMMUTABLE STRICT SET search_path = public AS $$
@@ -38,7 +118,6 @@ BEGIN
   RETURN result;
 END $$;
 
--- Called only inside the authorized transaction below (or the manual save RPC).
 CREATE FUNCTION public.archive_active_weights(p_org_id uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -72,7 +151,6 @@ BEGIN
     RAISE EXCEPTION 'Approved weight version not found';
   END IF;
   weights := public.validate_named_weights(target.weights_json);
-  -- Resolve by explicit names, never by row order or guessed category numbers.
   IF (SELECT count(*) FROM public.consequences) <> 10
     OR (SELECT count(DISTINCT public.consequence_weight_key(category)) FROM public.consequences) <> 10 THEN
     RAISE EXCEPTION 'Consequence catalog must contain each of the ten supported categories exactly once';
@@ -85,6 +163,8 @@ BEGIN
     WHERE id = target.id;
   UPDATE public.organizations SET weights_configured = true WHERE id = p_org_id;
 END $$;
+REVOKE ALL ON FUNCTION public.activate_weighting_weights(UUID, INT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.activate_weighting_weights(UUID, INT) TO authenticated;
 
 CREATE FUNCTION public.approve_weighting_session(
   p_session_id uuid, p_expected_weights jsonb, p_notes text DEFAULT NULL
@@ -99,7 +179,6 @@ BEGIN
   PERFORM 1 FROM public.organizations WHERE id = s.org_id FOR UPDATE;
   SELECT * INTO s FROM public.weighting_sessions WHERE id = p_session_id FOR UPDATE;
   SELECT id INTO approver FROM public.profiles WHERE user_id = auth.uid() AND org_id = s.org_id;
-  -- Retry after a lost response is a no-op, not an extra version or reactivation.
   SELECT version INTO prior_version FROM public.weighting_final_weights
     WHERE session_id = p_session_id AND org_id = s.org_id AND approved_by IS NOT NULL ORDER BY version DESC LIMIT 1;
   IF prior_version IS NOT NULL THEN RETURN prior_version; END IF;
@@ -130,7 +209,6 @@ REVOKE ALL ON FUNCTION public.approve_weighting_session(uuid, jsonb, text) FROM 
 GRANT EXECUTE ON FUNCTION public.approve_weighting_session(uuid, jsonb, text) TO authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.weighting_final_weights FROM anon, authenticated;
 
--- Manual setup must also be atomic and must not leave an AI version marked active.
 CREATE FUNCTION public.save_consequence_weights(p_weights jsonb) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE org uuid := public.get_user_org_id(auth.uid()); total numeric; item record;
@@ -162,7 +240,6 @@ REVOKE ALL ON FUNCTION public.save_consequence_weights(jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_consequence_weights(jsonb) TO authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.consequence_weights FROM anon, authenticated;
 
--- Each assessment keeps the weights in force when it is first created.
 CREATE FUNCTION public.snapshot_assessment_weights() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
@@ -178,7 +255,6 @@ END $$;
 CREATE TRIGGER snapshot_assessment_weights BEFORE INSERT OR UPDATE ON public.assessments
   FOR EACH ROW EXECUTE FUNCTION public.snapshot_assessment_weights();
 
--- Synthesis recommendations for an approved session are part of its audit trail.
 CREATE FUNCTION public.guard_approved_synthesis() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public AS $$
 DECLARE session_status text;

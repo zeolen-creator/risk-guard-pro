@@ -1,3 +1,4 @@
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -41,7 +42,7 @@ export function useAssessments() {
     if (!profile?.org_id) return;
 
     const channel = supabase
-      .channel("assessments-changes")
+      .channel(`assessments-changes-${profile.org_id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
@@ -142,7 +143,7 @@ export function useUpdateAssessment() {
 
       const { data, error } = await supabase
         .from("assessments")
-        .update(dbUpdates)
+        .update(dbUpdates as TablesUpdate<"assessments">)
         .eq("id", id)
         .select()
         .single();

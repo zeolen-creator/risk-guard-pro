@@ -1,3 +1,4 @@
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "./useProfile";
@@ -211,7 +212,7 @@ export function useUpdateEventAssessment() {
 
       const { error } = await supabase
         .from("event_assessments")
-        .update(updateData)
+        .update(updateData as TablesUpdate<"event_assessments">)
         .eq("id", id);
 
       if (error) throw error;

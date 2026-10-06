@@ -21,7 +21,7 @@ export function useConsequenceWeights() {
     if (!profile?.org_id) return;
 
     const channel = supabase
-      .channel("consequence-weights-changes")
+      .channel(`consequence-weights-changes-${profile.org_id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {

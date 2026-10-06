@@ -147,7 +147,6 @@ export function Layer4RegulatoryResearch({
         .from('weighting_sessions')
         .update({
           layer4_completed: true,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', sessionId);
 
