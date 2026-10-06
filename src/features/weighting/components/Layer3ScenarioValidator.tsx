@@ -180,7 +180,6 @@ export function Layer3ScenarioValidator({
 
         await supabase.from('weighting_scenario_validations').upsert({
           session_id: sessionId,
-          scenario_template_id: scenario.id,
           scenario_number: index + 1,
           scenario_title: scenario.scenario_title,
           scenario_description: scenario.scenario_description,
@@ -200,7 +199,6 @@ export function Layer3ScenarioValidator({
         .from('weighting_sessions')
         .update({
           layer3_completed: true,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', sessionId);
 
