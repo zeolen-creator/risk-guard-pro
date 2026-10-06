@@ -90,7 +90,7 @@ export function useUpdateOrganization() {
 
       const { data, error } = await supabase
         .from("organizations")
-        .update(updates as TablesUpdate<"organizations">)
+        .update(updates as unknown as TablesUpdate<"organizations">)
         .eq("id", profile.org_id)
         .select()
         .single();
