@@ -45,7 +45,7 @@ export function useUpdateProfile() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (updates: Partial<Profile>) => {
+    mutationFn: async (updates: Partial<Pick<Profile, "first_name" | "last_name" | "role_title" | "department" | "expertise">>) => {
       if (!user?.id) throw new Error("Not authenticated");
 
       const { data, error } = await supabase

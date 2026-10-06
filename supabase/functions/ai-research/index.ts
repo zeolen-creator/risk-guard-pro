@@ -1,3 +1,4 @@
+import { requireOrganization, requireOrgResource } from "../_shared/authorization.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.1";
 
 const corsHeaders = {
@@ -67,6 +68,9 @@ Deno.serve(async (req) => {
 
   const startTime = Date.now();
 
+  const access = await requireOrganization(req, corsHeaders);
+  if (access instanceof Response) return access;
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -122,6 +126,11 @@ Deno.serve(async (req) => {
         JSON.stringify({ success: false, error: "User has no organization" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (assessment_id) {
+      const denied = await requireOrgResource(access, "assessments", assessment_id, corsHeaders);
+      if (denied) return denied;
     }
 
     // Check cache first

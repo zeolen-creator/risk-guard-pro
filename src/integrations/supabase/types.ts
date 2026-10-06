@@ -3711,6 +3711,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_organization: {
+        Args: {
+          p_name: string
+          p_sector: string
+          p_region: string
+          p_size?: string | null
+          p_description?: string | null
+          p_primary_location?: string | null
+          p_key_facilities?: string[] | null
+        }
+        Returns: Database["public"]["Tables"]["organizations"]["Row"]
+      }
       activate_weighting_weights: {
         Args: { p_new_version: number; p_org_id: string }
         Returns: undefined

@@ -1,3 +1,4 @@
+import { requireOrganization } from "../_shared/authorization.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -158,6 +159,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+
+  const access = await requireOrganization(req, corsHeaders);
+  if (access instanceof Response) return access;
 
   try {
     const { industry, jurisdiction, org_context } = await req.json() as RegulationRequest;

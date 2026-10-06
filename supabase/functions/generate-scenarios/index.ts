@@ -1,6 +1,6 @@
+import { requireOrganization } from "../_shared/authorization.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,15 +22,16 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const access = await requireOrganization(req, corsHeaders);
+  if (access instanceof Response) return access;
+
   try {
     const { industry, org_context, count = 4 } = await req.json() as ScenarioRequest;
 
     console.log(`Generating ${count} scenarios for ${industry}`);
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = access.supabase;
 
     // First, try to get existing scenarios from the template library
     const { data: existingScenarios, error: fetchError } = await supabase
