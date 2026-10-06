@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { toast } from "sonner";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -61,11 +62,13 @@ export default function OnboardingPage() {
     },
   });
 
-  // Redirect if already onboarded
-  if (!profileLoading && profile?.org_id && organization) {
-    navigate("/dashboard");
-    return null;
-  }
+  // Resume profile setup after refresh; creating an org must not skip step two.
+  useEffect(() => {
+    if (!profileLoading && profile?.org_id && organization) {
+      if (profile.role_title) navigate("/dashboard", { replace: true });
+      else setStep(2);
+    }
+  }, [profileLoading, profile?.org_id, profile?.role_title, organization, navigate]);
 
   const onOrgSubmit = async (data: OrgFormData) => {
     try {
@@ -81,7 +84,7 @@ export default function OnboardingPage() {
       });
       setStep(2);
     } catch (error) {
-      console.error("Error creating organization:", error);
+      toast.error("Could not create your organization. Please try again.");
     }
   };
 
@@ -90,7 +93,7 @@ export default function OnboardingPage() {
       await updateProfile.mutateAsync(data);
       navigate("/dashboard");
     } catch (error) {
-      console.error("Error updating profile:", error);
+      toast.error("Could not save your profile. Please try again.");
     }
   };
 
@@ -283,7 +286,7 @@ export default function OnboardingPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setStep(1)}
-                    disabled={updateProfile.isPending}
+                    disabled={updateProfile.isPending || !!profile?.org_id}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
