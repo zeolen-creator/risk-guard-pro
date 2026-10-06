@@ -41,7 +41,7 @@ export function useAssessments() {
     if (!profile?.org_id) return;
 
     const channel = supabase
-      .channel("assessments-changes")
+      .channel(`assessments-changes-${profile.org_id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {

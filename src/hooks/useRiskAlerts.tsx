@@ -48,7 +48,7 @@ export function useRiskAlerts() {
     if (!profile?.org_id) return;
 
     const channel = supabase
-      .channel("risk-alerts-realtime")
+      .channel(`risk-alerts-realtime-${profile.org_id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {
