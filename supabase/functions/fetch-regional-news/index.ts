@@ -1,3 +1,4 @@
+import { requireOrganization } from "../_shared/authorization.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -560,6 +561,9 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const access = await requireOrganization(req, corsHeaders);
+  if (access instanceof Response) return access;
+
   try {
     console.log("Starting fetch-regional-news function");
 
@@ -572,11 +576,12 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all organizations with news enabled and Canadian region
+    // Refresh only the authenticated caller's Canadian organization
     const { data: orgs, error: orgError } = await supabase
       .from("organizations")
       .select("id, name, primary_location, industry_type, sector, news_settings, region")
-      .ilike("region", "%canada%");
+      .ilike("region", "%canada%")
+      .eq("id", access.orgId);
 
     if (orgError) {
       throw new Error(`Failed to fetch organizations: ${orgError.message}`);
