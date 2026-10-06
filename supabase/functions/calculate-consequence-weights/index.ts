@@ -1,5 +1,5 @@
+import { requireOrganization, requireOrgResource } from "../_shared/authorization.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,10 +7,6 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 function getRiskToleranceDescription(tolerance: string): string {
   const descriptions: Record<string, string> = {
@@ -29,8 +25,14 @@ serve(async (req) => {
 
   const startTime = Date.now();
 
+  const access = await requireOrganization(req, corsHeaders);
+  if (access instanceof Response) return access;
+
   try {
+    const supabase = access.supabase;
     const { session_id } = await req.json();
+    const denied = await requireOrgResource(access, "weighting_sessions", session_id, corsHeaders);
+    if (denied) return denied;
 
     if (!session_id) {
       throw new Error("session_id is required");
