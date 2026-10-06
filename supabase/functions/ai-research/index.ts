@@ -359,7 +359,7 @@ If you cannot find reliable data for a specific consequence type, set its score 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
       const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", status, errorText);
+      console.error("OpenAI API error:", status, errorText);
 
       if (status === 429) {
         return new Response(
@@ -369,7 +369,7 @@ If you cannot find reliable data for a specific consequence type, set its score 
       }
       if (status === 402) {
         return new Response(
-          JSON.stringify({ success: false, error: "AI credits exhausted. Please contact support." }),
+          JSON.stringify({ success: false, error: "OpenAI API billing needs attention." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
