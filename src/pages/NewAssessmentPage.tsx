@@ -30,7 +30,9 @@ export default function NewAssessmentPage() {
   const navigate = useNavigate();
   const { data: hazards = [], isLoading: hazardsLoading } = useHazards();
   const { data: consequences = [], isLoading: consequencesLoading } = useConsequences();
-  const { data: weights = {}, isLoading: weightsLoading } = useConsequenceWeightsMap();
+  const { data: currentWeights = {}, isLoading: weightsLoading } = useConsequenceWeightsMap();
+  const [savedWeights, setSavedWeights] = useState<Record<string, number> | null>(null);
+  const weights = savedWeights ?? currentWeights;
   const { data: organization, isLoading: orgLoading } = useOrganization();
   const createAssessment = useCreateAssessment();
   const updateAssessment = useUpdateAssessment();
@@ -95,6 +97,7 @@ export default function NewAssessmentPage() {
       try {
         const result = await createAssessment.mutateAsync(title);
         setAssessmentId(result.id);
+        setSavedWeights(result.weights as Record<string, number>);
         toast.success("Draft saved");
       } catch (error) {
         toast.error("Failed to create assessment");
@@ -109,7 +112,6 @@ export default function NewAssessmentPage() {
           id: assessmentId,
           selected_hazards: selectedHazards,
           probabilities,
-          weights,
           impacts,
         });
       } catch (error) {
@@ -143,7 +145,6 @@ export default function NewAssessmentPage() {
         id: assessmentId,
         selected_hazards: selectedHazards,
         probabilities,
-        weights,
         impacts,
         total_risk: totalRisk,
         status: "completed",

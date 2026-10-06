@@ -60,18 +60,10 @@ export function useCreateWeightingSession() {
     mutationFn: async () => {
       if (!profile?.org_id || !profile?.id) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
-        .from("weighting_sessions")
-        .insert({
-          org_id: profile.org_id,
-          created_by: profile.id,
-          status: "in_progress",
-          version: 1,
-        })
-        .select()
-        .single();
-
+      const { data: id, error } = await supabase.rpc("create_weighting_session");
       if (error) throw error;
+      const { data, error: fetchError } = await supabase.from("weighting_sessions").select("*").eq("id", id).single();
+      if (fetchError) throw fetchError;
       return data;
     },
     onSuccess: () => {

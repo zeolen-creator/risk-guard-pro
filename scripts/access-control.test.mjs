@@ -1,35 +1,12 @@
-import { PGlite } from '@electric-sql/pglite';
-import { readFile, readdir } from 'node:fs/promises';
+import { createTestDatabase } from './test-database.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 // Real PostgreSQL SQL/RLS execution in WASM. Only Supabase's platform schemas
 // are stubbed; application tables, functions and policies come from migrations.
 test('onboarding transactions and organization isolation', async () => {
-  const db = new PGlite();
+  const db = await createTestDatabase();
   try {
-    await db.exec(`
-      CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
-      CREATE SCHEMA auth; CREATE SCHEMA storage;
-      CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
-      CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
-        $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-      CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean, file_size_limit bigint);
-      CREATE TABLE storage.objects (id uuid DEFAULT gen_random_uuid(), bucket_id text, name text);
-      ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-      CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS
-        $$ SELECT string_to_array($1, '/') $$;
-      GRANT USAGE ON SCHEMA public, auth, storage TO anon, authenticated, service_role;
-      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-      GRANT ALL ON storage.objects TO anon, authenticated;
-    `);
-    for (const file of (await readdir(new URL('../supabase/migrations/', import.meta.url))).sort()) {
-      let sql = await readFile(new URL('../supabase/migrations/' + file, import.meta.url), 'utf8');
-      // gen_random_uuid is built into PostgreSQL; publication is platform-only.
-      sql = sql.replace(/CREATE EXTENSION IF NOT EXISTS "uuid-ossp";/g, '')
-        .replace(/ALTER PUBLICATION supabase_realtime ADD TABLE [^;]+;/g, '');
-      try { await db.exec(sql); } catch (error) { throw new Error(`${file}: ${error.message}`, { cause: error }); }
-    }
     const users = [1,2,3,4,5].map(n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`);
     for (const id of users) await db.query('INSERT INTO auth.users VALUES ($1, $2)', [id, `${id}@example.test`]);
     const asUser = async (id, role = 'authenticated') => {

@@ -3711,6 +3711,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_weighting_session: {
+        Args: { p_session_id: string; p_expected_weights: Json; p_notes?: string }
+        Returns: number
+      }
+      save_consequence_weights: { Args: { p_weights: Json }; Returns: undefined }
+      create_weighting_session: { Args: never; Returns: string }
       create_organization: {
         Args: {
           p_name: string

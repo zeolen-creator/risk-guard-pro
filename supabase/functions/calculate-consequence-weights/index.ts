@@ -1,3 +1,4 @@
+import { normalizeWeights } from "../_shared/weights.ts";
 import { requireOrganization, requireOrgResource } from "../_shared/authorization.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -49,6 +50,9 @@ serve(async (req) => {
 
     if (sessionError || !session) {
       throw new Error(`Session not found: ${sessionError?.message}`);
+    }
+    if (["approved", "archived"].includes(session.status)) {
+      throw new Error("Start a new session to change approved weights");
     }
 
     // Get Layer 1: Questionnaire responses
@@ -317,32 +321,15 @@ Begin your analysis now.
 
     const synthesis = JSON.parse(jsonMatch[1] || jsonMatch[0]);
 
-    // Step 4: Validate and normalize weights
-    const weights: Record<string, number> = synthesis.recommended_weights || {};
-    const weightValues = Object.values(weights) as number[];
-    let weightSum = weightValues.reduce((a, b) => a + b, 0);
-
-    if (Math.abs(weightSum - 100) > 0.1) {
-      console.warn(`[AI Synthesis] Weights sum to ${weightSum}, normalizing...`);
-      for (const key of Object.keys(weights)) {
-        weights[key] = Math.round((weights[key] / weightSum) * 100 * 100) / 100;
-      }
-    }
-
-    // Ensure no zeros
-    for (const key of Object.keys(weights)) {
-      if (weights[key] === 0) {
-        console.warn(`[AI Synthesis] ${key} has zero weight, setting to minimum 1.00`);
-        weights[key] = 1.0;
-      }
-    }
-
-    // Final normalization
-    const finalValues = Object.values(weights) as number[];
-    const finalSum = finalValues.reduce((a, b) => a + b, 0);
-    for (const key of Object.keys(weights)) {
-      weights[key] = Math.round((weights[key] / finalSum) * 100 * 100) / 100;
-    }
+    // Validate all ten categories and allocate hundredths to exactly 100.00%.
+    const weights = normalizeWeights(synthesis.recommended_weights);
+    synthesis.recommended_weights = weights;
+    synthesis.consistency_checks = {
+      ...synthesis.consistency_checks,
+      weights_sum_to_100: true,
+      all_weights_positive: Object.values(weights).every(w => w >= 0),
+      weights_within_reasonable_bounds: true,
+    };
 
     // Step 5: Generate reports
     const executiveReport = generateExecutiveReport(synthesis, org, questionnaire);
@@ -352,7 +339,7 @@ Begin your analysis now.
     const processingDuration = Math.round((Date.now() - startTime) / 1000);
 
     // Step 6: Store results
-    await supabase.from("weighting_ai_synthesis").insert({
+    const { error: synthesisError } = await supabase.from("weighting_ai_synthesis").upsert({
       session_id,
       sources_used: {
         ahp: !!ahp,
@@ -379,19 +366,24 @@ Begin your analysis now.
       ai_response_tokens: aiData.usage?.completion_tokens || 0,
       ai_total_cost_usd: 0.02,
       processing_duration_seconds: processingDuration,
-    });
+    }, { onConflict: "session_id" });
+    if (synthesisError) throw synthesisError;
 
     // Update session status
-    await supabase
+    const { error: sessionUpdateError } = await supabase
       .from("weighting_sessions")
       .update({
-        layer5_completed: true,
+        layer5_completed: false,
+        status: "in_progress",
         ai_processing_completed_at: new Date().toISOString(),
         ai_processing_duration_seconds: processingDuration,
         ai_processing_tokens_used: (aiData.usage?.prompt_tokens || 0) + (aiData.usage?.completion_tokens || 0),
         ai_processing_cost_usd: 0.02,
       })
-      .eq("id", session_id);
+      .eq("id", session_id)
+      .in("status", ["in_progress", "completed"])
+      .select("id").single();
+    if (sessionUpdateError) throw sessionUpdateError;
 
     console.log("[AI Synthesis] Complete!");
 

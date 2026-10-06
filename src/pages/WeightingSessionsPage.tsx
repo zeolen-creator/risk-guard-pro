@@ -34,7 +34,7 @@ export default function WeightingSessionsPage() {
         return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Approved</Badge>;
       case "in_progress":
         return <Badge variant="secondary">In Progress</Badge>;
-      case "pending_approval":
+      case "completed":
         return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">Pending Approval</Badge>;
       default:
         return <Badge variant="outline">Draft</Badge>;

@@ -1,3 +1,4 @@
+import { canonicalWeights, validWeightTotal } from "../../../../supabase/functions/_shared/weights";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { JustificationReport } from "./JustificationReport";
 interface Layer5AISynthesisProps {
   sessionId: string;
   organizationId?: string;
-  onComplete?: () => void;
+  onComplete?: (weights: Record<string, number>) => void;
   onBack?: () => void;
 }
 
@@ -66,12 +67,14 @@ export function Layer5AISynthesis({
   // Load existing synthesis if available
   useEffect(() => {
     async function loadExisting() {
-      const { data: synthesis } = await supabase
+      setSynthesisResult(null);
+      const { data: synthesis, error } = await supabase
         .from('weighting_ai_synthesis')
         .select('*')
         .eq('session_id', sessionId)
         .maybeSingle();
 
+      if (error) { toast({ title: "Could not load saved synthesis", variant: "destructive" }); return; }
       if (synthesis) {
         setSynthesisResult({
           recommended_weights: synthesis.recommended_weights as Record<string, number>,
@@ -103,18 +106,18 @@ export function Layer5AISynthesis({
     }
 
     loadExisting();
-  }, [sessionId]);
+  }, [sessionId, toast]);
 
   const startSynthesis = async () => {
     setIsSynthesizing(true);
     setSynthesisProgress(0);
 
-    try {
-      // Simulate progress while AI works
-      const progressInterval = setInterval(() => {
+    // Keep progress cleanup independent of request success.
+    const progressInterval = setInterval(() => {
         setSynthesisProgress(prev => Math.min(prev + 5, 90));
       }, 2000);
 
+    try {
       const { data, error } = await supabase.functions.invoke('calculate-consequence-weights', {
         body: { session_id: sessionId },
       });
@@ -122,6 +125,7 @@ export function Layer5AISynthesis({
       clearInterval(progressInterval);
 
       if (error) throw error;
+      if (!data?.success || !validWeightTotal(canonicalWeights(data.recommended_weights))) throw new Error("Invalid synthesis response");
 
       setSynthesisProgress(100);
 
@@ -150,6 +154,7 @@ export function Layer5AISynthesis({
         variant: "destructive",
       });
     } finally {
+      clearInterval(progressInterval);
       setIsSynthesizing(false);
     }
   };
@@ -160,21 +165,25 @@ export function Layer5AISynthesis({
     setIsSaving(true);
     try {
       // Update session
-      await supabase
+      const weights = canonicalWeights(synthesisResult.recommended_weights);
+      if (!validWeightTotal(weights)) throw new Error("Weights must sum to 100%");
+      const { error } = await supabase
         .from('weighting_sessions')
         .update({
           layer5_completed: true,
-          status: 'pending_approval',
-          updated_at: new Date().toISOString(),
+          status: 'completed',
         })
-        .eq('id', sessionId);
+        .eq('id', sessionId)
+        .in('status', ['in_progress', 'completed'])
+        .select('id').single();
+      if (error) throw error;
 
       toast({
         title: "Weights Accepted",
         description: "Proceeding to approval workflow",
       });
 
-      onComplete?.();
+      onComplete?.(weights);
     } catch (error) {
       console.error('Error saving:', error);
       toast({
@@ -295,7 +304,7 @@ export function Layer5AISynthesis({
             <Button variant="outline" onClick={startSynthesis} disabled={isSynthesizing}>
               Regenerate
             </Button>
-            <Button onClick={handleAcceptWeights} disabled={isSaving}>
+            <Button onClick={handleAcceptWeights} disabled={isSaving || isSynthesizing}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

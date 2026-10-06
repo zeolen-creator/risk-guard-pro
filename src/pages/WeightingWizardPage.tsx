@@ -1,3 +1,5 @@
+import { useWeightingSynthesis } from "@/hooks/useWeightingSynthesis";
+import { canonicalWeights } from "../../supabase/functions/_shared/weights";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
@@ -10,7 +12,7 @@ import { Layer4RegulatoryResearch } from "@/features/weighting/components/Layer4
 import { Layer5AISynthesis } from "@/features/weighting/components/Layer5AISynthesis";
 import { Layer6ApprovalWorkflow } from "@/features/weighting/components/Layer6ApprovalWorkflow";
 import { useWeightingSession, useUpdateWeightingSession } from "@/hooks/useWeightingSessions";
-import { useSaveAHPMatrix } from "@/hooks/useAHPMatrix";
+import { useAHPMatrix, useSaveAHPMatrix } from "@/hooks/useAHPMatrix";
 import { useOrganization } from "@/hooks/useOrganization";
 import { supabase } from "@/integrations/supabase/client";
 import type { QuestionnaireResponse } from "@/features/weighting/types";
@@ -18,10 +20,16 @@ import { CONSEQUENCE_NAMES } from "@/features/weighting/types";
 
 export default function WeightingWizardPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  return <WeightingWizard key={sessionId} sessionId={sessionId} />;
+}
+
+function WeightingWizard({ sessionId }: { sessionId: string | undefined }) {
   const navigate = useNavigate();
   const { data: session, isLoading } = useWeightingSession(sessionId);
   const { data: organization } = useOrganization();
   const updateSession = useUpdateWeightingSession();
+  const synthesis = useWeightingSynthesis(sessionId);
+  const savedAHP = useAHPMatrix(sessionId);
   const saveAHPMatrix = useSaveAHPMatrix();
 
   const [currentLayer, setCurrentLayer] = useState(1);
@@ -29,6 +37,15 @@ export default function WeightingWizardPage() {
   const [ahpWeights, setAhpWeights] = useState<Record<string, number> | null>(null);
   const [recommendedWeights, setRecommendedWeights] = useState<Record<string, number> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (synthesis.data) setRecommendedWeights(synthesis.data.weights);
+  }, [synthesis.data]);
+  useEffect(() => {
+    if (savedAHP.data?.normalized_weights) {
+      setAhpWeights(savedAHP.data.normalized_weights as Record<string, number>);
+    }
+  }, [savedAHP.data]);
 
   // Sync current layer from session
   useEffect(() => {
@@ -83,8 +100,10 @@ export default function WeightingWizardPage() {
     // Regulatory research step completed
   };
 
-  const handleSynthesisComplete = () => {
-    // Synthesis step completed
+  const handleSynthesisComplete = (weights: Record<string, number>) => {
+    setRecommendedWeights(canonicalWeights(weights));
+    void synthesis.refetch();
+    setCurrentLayer(6);
   };
 
   const handleApprovalComplete = () => {
@@ -163,12 +182,7 @@ export default function WeightingWizardPage() {
           break;
 
         case 5:
-          // AI Synthesis complete
-          await updateSession.mutateAsync({
-            sessionId,
-            updates: { layer5_completed: true },
-          });
-          setCurrentLayer(6);
+          // Acceptance is handled by the synthesis panel after successful persistence.
           break;
 
         case 6:
@@ -190,7 +204,7 @@ export default function WeightingWizardPage() {
   };
 
   const handleLayerClick = (layer: number) => {
-    if (layer >= 1 && layer <= 6) {
+    if (layer >= 1 && layer <= 6 && (layer !== 6 || session?.layer5_completed || recommendedWeights)) {
       setCurrentLayer(layer);
     }
   };
@@ -226,6 +240,7 @@ export default function WeightingWizardPage() {
       case 2:
         return (
           <Layer2AHPComparison
+            initialMatrix={savedAHP.data?.matrix as number[][] | undefined}
             onComplete={handleAHPComplete}
           />
         );
@@ -252,6 +267,7 @@ export default function WeightingWizardPage() {
         return (
           <Layer5AISynthesis
             sessionId={sessionId!}
+            onBack={handleBack}
             onComplete={handleSynthesisComplete}
           />
         );
@@ -259,7 +275,7 @@ export default function WeightingWizardPage() {
         return (
           <Layer6ApprovalWorkflow
             sessionId={sessionId!}
-            weights={recommendedWeights || ahpWeights || {}}
+            onBack={handleBack}
             onComplete={handleApprovalComplete}
           />
         );
@@ -283,7 +299,7 @@ export default function WeightingWizardPage() {
   };
 
   // Hide next button on Layer 6 (approval has its own controls)
-  const showNextButton = currentLayer !== 6;
+  const showNextButton = currentLayer < 5;
 
   return (
     <WeightingWizardLayout

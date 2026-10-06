@@ -6,8 +6,6 @@ import { z } from "zod";
 import { Link } from "react-router-dom";
 import { useHazards, useConsequences } from "@/hooks/useHazards";
 import { useAssessments, useUpdateAssessment } from "@/hooks/useAssessments";
-import { useConsequenceWeightsMap } from "@/hooks/useConsequenceWeights";
-import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,12 +25,14 @@ const titleSchema = z.object({
 });
 
 export default function EditAssessmentPage() {
-  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  return <EditAssessment key={id} id={id} />;
+}
+
+function EditAssessment({ id }: { id: string | undefined }) {
+  const navigate = useNavigate();
   const { data: hazards = [], isLoading: hazardsLoading } = useHazards();
   const { data: consequences = [], isLoading: consequencesLoading } = useConsequences();
-  const { data: weights = {}, isLoading: weightsLoading } = useConsequenceWeightsMap();
-  const { data: organization, isLoading: orgLoading } = useOrganization();
   const { data: assessments, isLoading: assessmentsLoading } = useAssessments();
   const updateAssessment = useUpdateAssessment();
 
@@ -52,6 +52,8 @@ export default function EditAssessmentPage() {
 
   // Find the assessment
   const assessment = assessments?.find(a => a.id === id);
+  const weights = assessment?.weights || {};
+  const hasSavedWeights = Object.keys(weights).length > 0;
 
   // Initialize form with assessment data
   useEffect(() => {
@@ -71,14 +73,6 @@ export default function EditAssessmentPage() {
       setInitialized(true);
     }
   }, [assessment, initialized, form]);
-
-  // Redirect to weights setup if not configured
-  useEffect(() => {
-    if (!orgLoading && organization && !organization.weights_configured) {
-      toast.info("Please configure consequence weights first");
-      navigate("/settings/weights");
-    }
-  }, [organization, orgLoading, navigate]);
 
   const handleProbabilityChange = (hazardId: string, value: number) => {
     setProbabilities((prev) => ({ ...prev, [hazardId]: value }));
@@ -120,7 +114,6 @@ export default function EditAssessmentPage() {
           title: form.getValues("title"),
           selected_hazards: selectedHazards,
           probabilities,
-          weights,
           impacts,
         });
       } catch (error) {
@@ -155,7 +148,6 @@ export default function EditAssessmentPage() {
         title: form.getValues("title"),
         selected_hazards: selectedHazards,
         probabilities,
-        weights,
         impacts,
         total_risk: totalRisk,
         status: "completed",
@@ -172,7 +164,7 @@ export default function EditAssessmentPage() {
     }
   };
 
-  const isLoading = hazardsLoading || consequencesLoading || weightsLoading || orgLoading || assessmentsLoading;
+  const isLoading = hazardsLoading || consequencesLoading || assessmentsLoading;
 
   if (isLoading) {
     return (
@@ -195,9 +187,12 @@ export default function EditAssessmentPage() {
     );
   }
 
-  // Don't render if weights not configured (will redirect)
-  if (!organization?.weights_configured) {
-    return null;
+  if (!hasSavedWeights) {
+    return <div className="p-8 space-y-4">
+      <h1 className="text-xl font-semibold">This assessment has no saved weights</h1>
+      <p>Its original scoring weights cannot be recovered automatically. Create a new assessment using your current weights.</p>
+      <Button asChild><Link to="/dashboard">Return to Dashboard</Link></Button>
+    </div>;
   }
 
   return (
