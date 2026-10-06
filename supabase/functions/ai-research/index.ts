@@ -1,4 +1,5 @@
 import { requireOrganization, requireOrgResource } from "../_shared/authorization.ts";
+import { openAIChatCompletions } from "../_shared/openai.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.1";
 
 const corsHeaders = {
@@ -181,10 +182,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // No cache - call Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
+    // No cache - call OpenAI
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      console.error("OPENAI_API_KEY not configured");
       return new Response(
         JSON.stringify({ success: false, error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -261,16 +262,16 @@ For EACH consequence type:
 
 If you cannot find reliable data for a specific consequence type, set its score to null and explain why.`;
 
-    console.log("Calling Lovable AI for research:", { hazard_name, research_type, org: org_context.name });
+    console.log("Calling OpenAI for research:", { hazard_name, research_type, org: org_context.name });
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await openAIChatCompletions({
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gpt-4.1-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -358,7 +359,7 @@ If you cannot find reliable data for a specific consequence type, set its score 
     if (!aiResponse.ok) {
       const status = aiResponse.status;
       const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", status, errorText);
+      console.error("OpenAI API error:", status, errorText);
 
       if (status === 429) {
         return new Response(
@@ -368,7 +369,7 @@ If you cannot find reliable data for a specific consequence type, set its score 
       }
       if (status === 402) {
         return new Response(
-          JSON.stringify({ success: false, error: "AI credits exhausted. Please contact support." }),
+          JSON.stringify({ success: false, error: "OpenAI API billing needs attention." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

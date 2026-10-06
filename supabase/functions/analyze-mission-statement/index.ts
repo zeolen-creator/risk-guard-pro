@@ -1,4 +1,5 @@
 import { requireOrganization } from "../_shared/authorization.ts";
+import { openAIChatCompletions } from "../_shared/openai.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -119,14 +120,14 @@ RESPOND IN JSON FORMAT:
   "confidence_level": "high|medium|low"
 }`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await openAIChatCompletions({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+        "Authorization": `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gpt-4.1-mini",
         messages: [
           {
             role: "system",
