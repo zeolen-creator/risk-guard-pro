@@ -1,4 +1,5 @@
 import { normalizeWeights } from "../_shared/weights.ts";
+import { openAIChatCompletions } from "../_shared/openai.ts";
 import { requireOrganization, requireOrgResource } from "../_shared/authorization.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -7,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 function getRiskToleranceDescription(tolerance: string): string {
   const descriptions: Record<string, string> = {
@@ -277,16 +278,16 @@ Begin your analysis now.
 `;
 
     // Step 3: Call AI for synthesis
-    console.log("[AI Synthesis] Calling Lovable AI Gateway...");
+    console.log("[AI Synthesis] Calling OpenAI...");
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await openAIChatCompletions({
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "gpt-4.1-mini",
         messages: [
           {
             role: "system",
@@ -361,7 +362,7 @@ Begin your analysis now.
         synthesis.consistency_checks?.all_weights_positive &&
         synthesis.consistency_checks?.weights_within_reasonable_bounds,
       sensitivity_preview: null,
-      ai_model_used: "google/gemini-2.5-pro",
+      ai_model_used: "gpt-4.1-mini",
       ai_prompt_tokens: aiData.usage?.prompt_tokens || 0,
       ai_response_tokens: aiData.usage?.completion_tokens || 0,
       ai_total_cost_usd: 0.02,

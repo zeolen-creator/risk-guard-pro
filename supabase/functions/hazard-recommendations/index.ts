@@ -1,4 +1,5 @@
 import { requireOrganization } from "../_shared/authorization.ts";
+import { openAIChatCompletions } from "../_shared/openai.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.1";
 
 const corsHeaders = {
@@ -175,9 +176,9 @@ Deno.serve(async (req) => {
 
     if (hazardsNeedingAI.length > 0) {
       // LAYER 4: Call AI for uncached hazards
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        console.error("LOVABLE_API_KEY not configured");
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (!OPENAI_API_KEY) {
+        console.error("OPENAI_API_KEY not configured");
         // Fall back to rule-based scoring only
       } else {
         const hazardsList = hazardsNeedingAI.map(h => 
@@ -233,14 +234,14 @@ Return scores using the score_hazards tool. Provide brief reasoning for each sco
         try {
           console.log(`Calling AI to score ${hazardsNeedingAI.length} hazards`);
           
-          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const aiResponse = await openAIChatCompletions({
             method: "POST",
             headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
+              model: "gpt-4.1-mini",
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },
