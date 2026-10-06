@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run && node --test scripts/access-control.test.mjs",
+    "test": "vitest run && node --test scripts/*.test.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
