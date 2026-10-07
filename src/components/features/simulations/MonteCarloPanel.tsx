@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Play, TrendingUp, DollarSign, Loader2, BarChart3, AlertTriangle, Info } from "lucide-react";
+import { Play, TrendingUp, DollarSign, Loader2, BarChart3, AlertTriangle, Info, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   useSimulationTemplates,
   useMonteCarloSimulations,
   useRunSimulation,
+  useResearchSimulationAssumptions,
 } from "@/hooks/useMonteCarloSimulation";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ export function MonteCarloPanel() {
   const { data: templates = [], isLoading: templatesLoading } = useSimulationTemplates();
   const { data: simulations = [], isLoading: simulationsLoading } = useMonteCarloSimulations();
   const runSimulation = useRunSimulation();
+  const researchAssumptions = useResearchSimulationAssumptions();
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [iterations, setIterations] = useState("10000");
@@ -48,6 +50,21 @@ export function MonteCarloPanel() {
       if (typeof value === "number") values[`${name}.${field}`] = value;
     }
     setAssumptions(values);
+  };
+
+  const handleResearchAssumptions = async () => {
+    if (!selectedTemplate) return;
+    try {
+      const result = await researchAssumptions.mutateAsync({ templateId: selectedTemplate });
+      const next: Record<string, number> = {};
+      for (const name of ["frequency_distribution", "direct_cost_distribution", "indirect_cost_distribution"]) {
+        for (const field of ["min", "mode", "max"]) next[`${name}.${field}`] = result[name][field];
+      }
+      setAssumptions(next);
+      toast.success("Research suggestions loaded. Review them before running the simulation.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Research failed");
+    }
   };
 
   const handleRunSimulation = async () => {
@@ -141,10 +158,11 @@ export function MonteCarloPanel() {
 
             {template && <div className="md:col-span-3 rounded-md border border-amber-300/60 bg-amber-50/60 p-3 text-sm dark:bg-amber-950/20">
               <div className="flex gap-2"><Info className="h-4 w-4 mt-0.5" /><div><p className="font-medium">Illustrative starting assumptions</p><p className="text-muted-foreground">Edit these screening inputs with organization-specific history. They are not validated forecasts.</p><p className="mt-1 text-muted-foreground">Source quality: {template.source_quality === "organization" ? "Organization-provided" : template.source_quality === "published" ? "Published context; local validation required" : "Illustrative default"}</p>{template.source_notes && <p className="mt-1 text-muted-foreground">Source note: {template.source_notes}</p>}{template.source_urls?.map((url) => <a key={url} className="mr-3 underline" href={url} target="_blank" rel="noreferrer">Published context</a>)}</div></div>
+              <Button type="button" variant="outline" size="sm" onClick={handleResearchAssumptions} disabled={researchAssumptions.isPending}><Search className="h-4 w-4 mr-2" />{researchAssumptions.isPending ? "Researching…" : "Research reasonable assumptions"}</Button>
               <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                 {["frequency_distribution", "direct_cost_distribution", "indirect_cost_distribution"].map((name) => (
                   <div key={name}>
-                    <p className="text-xs font-medium mb-1 capitalize">{name.replace(/_/g, " ")}</p>
+                    <p className="text-xs font-medium mb-1 capitalize">{name.replace(/_/g, " ")} <span title={name === "frequency_distribution" ? "Events per year. Higher values produce more simulated events." : name === "direct_cost_distribution" ? "Immediate response, repair, replacement, and cleanup costs per event." : "Secondary costs such as downtime, overtime, relocation, and lost service capacity per event."}>ⓘ</span></p>
                     <div className="grid grid-cols-3 gap-1">
                       {["min", "mode", "max"].map((field) => (
                         <Input key={field} type="number" aria-label={`${name} ${field}`} value={assumptions[`${name}.${field}`] ?? ""} onChange={(event) => setAssumptions((current) => ({ ...current, [`${name}.${field}`]: Number(event.target.value) }))} placeholder={field} />
