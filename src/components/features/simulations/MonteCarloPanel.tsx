@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Play, TrendingUp, DollarSign, Loader2, BarChart3, AlertTriangle } from "lucide-react";
+import { Play, TrendingUp, DollarSign, Loader2, BarChart3, AlertTriangle, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,27 @@ export function MonteCarloPanel() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [iterations, setIterations] = useState("10000");
   const [timeHorizon, setTimeHorizon] = useState("1");
+  const template = templates.find((item) => item.id === selectedTemplate);
+  const [assumptions, setAssumptions] = useState<Record<string, number>>({});
+
+  const distributionFor = (name: string) => {
+    const params = template?.default_parameters as Record<string, any> | undefined;
+    return params?.[name] ?? params?.[name.replace("_distribution", "")];
+  };
+
+  const selectTemplate = (id: string) => {
+    setSelectedTemplate(id);
+    const next = templates.find((item) => item.id === id);
+    const params = next?.default_parameters as Record<string, any> | undefined;
+    if (!params) return;
+    const values: Record<string, number> = {};
+    for (const name of ["frequency_distribution", "direct_cost_distribution", "indirect_cost_distribution"]) for (const field of ["min", "mode", "max"]) {
+      const distribution = params[name] ?? params[name.replace("_distribution", "")];
+      const value = (distribution as any)?.[field];
+      if (typeof value === "number") values[`${name}.${field}`] = value;
+    }
+    setAssumptions(values);
+  };
 
   const handleRunSimulation = async () => {
     if (!selectedTemplate) {
@@ -35,11 +56,24 @@ export function MonteCarloPanel() {
       return;
     }
 
+    for (const name of ["frequency_distribution", "direct_cost_distribution", "indirect_cost_distribution"]) {
+      const distribution = Object.fromEntries(["min", "mode", "max"].map((field) => [
+        field,
+        assumptions[`${name}.${field}`] ?? distributionFor(name)?.[field],
+      ]));
+      const { min, mode, max } = distribution as { min: number; mode: number; max: number };
+      if (![min, mode, max].every(Number.isFinite) || min < 0 || mode < min || max < mode) {
+        toast.error(`Check the ${name.replace(/_/g, " ")} assumptions: use min ≤ mode ≤ max.`);
+        return;
+      }
+    }
+
     try {
       const result = await runSimulation.mutateAsync({
         template_id: selectedTemplate,
         iterations: parseInt(iterations),
         time_horizon_years: parseInt(timeHorizon),
+        ...Object.fromEntries(["frequency_distribution", "direct_cost_distribution", "indirect_cost_distribution"].map((name) => [name, { ...distributionFor(name), ...Object.fromEntries(Object.entries(assumptions).filter(([key]) => key.startsWith(`${name}.`)).map(([key, value]) => [key.split(".")[1], value])) }])),
       });
       toast.success(
         `Simulation complete! Expected Annual Loss: $${result.results.eal_amount.toLocaleString()}`
@@ -83,7 +117,7 @@ export function MonteCarloPanel() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-3">
               <Label>Hazard Template</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <Select value={selectedTemplate} onValueChange={selectTemplate}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a hazard template..." />
                 </SelectTrigger>
@@ -104,6 +138,22 @@ export function MonteCarloPanel() {
                 </SelectContent>
               </Select>
             </div>
+
+            {template && <div className="md:col-span-3 rounded-md border border-amber-300/60 bg-amber-50/60 p-3 text-sm dark:bg-amber-950/20">
+              <div className="flex gap-2"><Info className="h-4 w-4 mt-0.5" /><div><p className="font-medium">Illustrative starting assumptions</p><p className="text-muted-foreground">Edit these screening inputs with organization-specific history. They are not validated forecasts.</p><p className="mt-1 text-muted-foreground">Source quality: {template.source_quality === "organization" ? "Organization-provided" : template.source_quality === "published" ? "Published context; local validation required" : "Illustrative default"}</p>{template.source_notes && <p className="mt-1 text-muted-foreground">Source note: {template.source_notes}</p>}{template.source_urls?.map((url) => <a key={url} className="mr-3 underline" href={url} target="_blank" rel="noreferrer">Published context</a>)}</div></div>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                {["frequency_distribution", "direct_cost_distribution", "indirect_cost_distribution"].map((name) => (
+                  <div key={name}>
+                    <p className="text-xs font-medium mb-1 capitalize">{name.replace(/_/g, " ")}</p>
+                    <div className="grid grid-cols-3 gap-1">
+                      {["min", "mode", "max"].map((field) => (
+                        <Input key={field} type="number" aria-label={`${name} ${field}`} value={assumptions[`${name}.${field}`] ?? ""} onChange={(event) => setAssumptions((current) => ({ ...current, [`${name}.${field}`]: Number(event.target.value) }))} placeholder={field} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>}
 
             <div>
               <Label>Iterations</Label>
@@ -241,3 +291,4 @@ export function MonteCarloPanel() {
     </Card>
   );
 }
+
