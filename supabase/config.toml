@@ -1,4 +1,4 @@
-project_id = "aqonxcntdvmyclzpfcmn"
+project_id = "knlusxozrktgcdyatpej"
 
 [functions.ai-research]
 verify_jwt = false
@@ -31,4 +31,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sensitivity-analysis]
+verify_jwt = false
+
+[functions.risk-intelligence]
 verify_jwt = false

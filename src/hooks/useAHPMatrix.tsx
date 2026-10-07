@@ -20,55 +20,8 @@ export const AHP_SCALE = [
   { value: 1/9, label: "Extremely Less Important" },
 ];
 
-// Random Index values for consistency calculation
-const RANDOM_INDEX: Record<number, number> = {
-  1: 0, 2: 0, 3: 0.58, 4: 0.90, 5: 1.12,
-  6: 1.24, 7: 1.32, 8: 1.41, 9: 1.45, 10: 1.49
-};
-
-export function calculateAHPWeights(matrix: number[][]): {
-  weights: number[];
-  consistencyRatio: number;
-  isConsistent: boolean;
-} {
-  const n = matrix.length;
-  
-  // Normalize columns
-  const colSums = matrix[0].map((_, colIdx) => 
-    matrix.reduce((sum, row) => sum + row[colIdx], 0)
-  );
-  
-  const normalized = matrix.map(row => 
-    row.map((val, colIdx) => val / colSums[colIdx])
-  );
-  
-  // Calculate weights (row averages)
-  const weights = normalized.map(row => 
-    row.reduce((sum, val) => sum + val, 0) / n
-  );
-  
-  // Calculate lambda max (principal eigenvalue approximation)
-  const weightedSum = matrix.map((row, i) => 
-    row.reduce((sum, val, j) => sum + val * weights[j], 0)
-  );
-  
-  const lambdaMax = weightedSum.reduce((sum, ws, i) => 
-    sum + ws / weights[i], 0
-  ) / n;
-  
-  // Calculate Consistency Index
-  const CI = (lambdaMax - n) / (n - 1);
-  
-  // Calculate Consistency Ratio
-  const RI = RANDOM_INDEX[n] || 1.49;
-  const CR = RI > 0 ? CI / RI : 0;
-  
-  return {
-    weights,
-    consistencyRatio: CR,
-    isConsistent: CR < 0.10 // Threshold is 10%
-  };
-}
+export { calculateAHPWeights } from "../../supabase/functions/_shared/hira-scoring";
+import { calculateAHPWeights } from "../../supabase/functions/_shared/hira-scoring";
 
 export function useAHPMatrix(sessionId: string | undefined) {
   return useQuery({

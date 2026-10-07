@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { validLikelihood, validImpact } from "../../../../supabase/functions/_shared/hira-scoring";
+import { publicUrl } from "../../../../supabase/functions/_shared/risk-evidence";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,10 +35,12 @@ export function AIResearchPanel({
   currentValue,
   currentConsequenceValues,
 }: AIResearchPanelProps) {
-  const { research, isLoading, getCachedResult, hasOrganizationContext } = useAIResearch();
+  const { research, isLoading, getCachedResult, hasOrganizationContext, contextKey } = useAIResearch();
   const [showPanel, setShowPanel] = useState(false);
   const [result, setResult] = useState<AIResearchData | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { setResult(null); setError(null); }, [hazardId, researchType, contextKey, JSON.stringify(consequences)]);
 
   const handleResearch = async () => {
     setShowPanel(true);
@@ -70,7 +74,7 @@ export function AIResearchPanel({
     
     const values: Record<string, number> = {};
     result.consequence_impacts.forEach((impact) => {
-      if (impact.suggested_value !== null) {
+      if (validImpact(impact.suggested_value)) {
         values[impact.consequence_id] = impact.suggested_value;
       }
     });
@@ -193,7 +197,7 @@ export function AIResearchPanel({
                     variant="outline"
                     className={getConfidenceColor(result.confidence_level)}
                   >
-                    {Math.round(result.confidence_level * 100)}% Confidence
+                    AI draft — review required
                   </Badge>
                   {result.location_specific && (
                     <Badge variant="secondary" className="text-xs">
@@ -238,7 +242,7 @@ export function AIResearchPanel({
                 )}
 
                 {/* Suggested Value - For Probability Research */}
-                {researchType === "probability" && result.suggested_value !== undefined && result.data_quality !== "none" && (
+                {researchType === "probability" && validLikelihood(result.suggested_value) && result.data_quality !== "none" && (
                   <div className="bg-primary/10 rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div>
@@ -307,13 +311,13 @@ export function AIResearchPanel({
                                 <p className="text-xs font-medium truncate">
                                   {impact.consequence_name}
                                 </p>
-                                {impact.suggested_value !== null ? (
+                                {validImpact(impact.suggested_value) ? (
                                   <p className="text-lg font-bold">{impact.suggested_value}</p>
                                 ) : (
                                   <p className="text-sm text-muted-foreground italic">No data</p>
                                 )}
                               </div>
-                              {currentConsequenceValues && impact.suggested_value !== null && (
+                              {currentConsequenceValues && validImpact(impact.suggested_value) && (
                                 <Badge
                                   variant={
                                     currentConsequenceValues[impact.consequence_id] === impact.suggested_value
@@ -394,7 +398,7 @@ export function AIResearchPanel({
                               </div>
                               {source.url && source.url !== "N/A" && (
                                 <a
-                                  href={source.url}
+                                  href={publicUrl(source.url) || undefined}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-primary hover:underline truncate block"

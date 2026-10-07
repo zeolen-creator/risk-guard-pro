@@ -1,3 +1,5 @@
+import { validLikelihood } from "../../../../supabase/functions/_shared/hira-scoring";
+import { publicUrl } from "../../../../supabase/functions/_shared/risk-evidence";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -360,7 +362,7 @@ export function MultiToolAssessmentPanel({
       const scenarioText = data.scenario_count > 1 ? ` (${data.scenario_count} scenarios)` : '';
       toast.success(`Simulation complete${scenarioText}! EAL: $${(data.results?.eal_amount || 0).toLocaleString()}`);
 
-      return { likelihood: mapEalToLikelihood(data.results?.eal_amount || 0), source: "monte_carlo" };
+      return null; // Financial losses do not determine event likelihood.
     } catch (error) {
       clearInterval(progressInterval);
       setMcStatus("error");
@@ -371,14 +373,7 @@ export function MultiToolAssessmentPanel({
     }
   };
 
-  const mapEalToLikelihood = (ealAmount: number): number => {
-    if (ealAmount < 10000) return 1;
-    if (ealAmount < 50000) return 2;
-    if (ealAmount < 100000) return 3;
-    if (ealAmount < 250000) return 4;
-    if (ealAmount < 500000) return 5;
-    return 6;
-  };
+
 
   const handleRunAIResearch = async () => {
     if (!profile?.org_id) {
@@ -422,7 +417,7 @@ export function MultiToolAssessmentPanel({
         setAiResults(data.data);
         setAiStatus("completed");
         toast.success("AI Research complete!");
-        return { likelihood: data.data.suggested_value || 3, source: "ai_research" };
+        return validLikelihood(data.data.suggested_value) ? { likelihood: data.data.suggested_value, source: "ai_research" } : null;
       } else {
         throw new Error(data?.error || "Research failed");
       }
@@ -446,52 +441,10 @@ export function MultiToolAssessmentPanel({
   };
 
   const getSynthesizedRecommendation = (): ToolResult | null => {
-    const recommendations: ToolResult[] = [];
-
-    if (mcStatus === "completed" && mcResults) {
-      recommendations.push({
-        likelihood: mapEalToLikelihood(mcResults.eal_amount),
-        source: "Monte Carlo",
-        confidence: "high",
-        details: mcResults as unknown as Record<string, unknown>,
-      });
-    }
-
-    if (aiStatus === "completed" && aiResults) {
-      recommendations.push({
-        likelihood: (aiResults.suggested_value as number) || 3,
-        source: "AI Research",
-        confidence: (aiResults.confidence_level as number) > 0.7 ? "high" : "medium",
-        details: aiResults,
-      });
-    }
-
-    if (manualStatus === "provided" && manualData) {
-      recommendations.push({
-        likelihood: manualData.likelihood,
-        source: "Manual Entry",
-        confidence: "user_judgment",
-      });
-    }
-
-    if (recommendations.length === 0) return null;
-
-    let totalWeight = 0;
-    let weightedSum = 0;
-    const sources: string[] = [];
-
-    recommendations.forEach((rec) => {
-      const weight = rec.confidence === "high" ? 1.5 : rec.confidence === "medium" ? 1 : 0.8;
-      weightedSum += (rec.likelihood || 0) * weight;
-      totalWeight += weight;
-      sources.push(rec.source);
-    });
-
-    return {
-      likelihood: Math.round(weightedSum / totalWeight),
-      source: sources.join(" + "),
-      confidence: recommendations.length > 1 ? "high" : "medium",
-    };
+    // Different methods are not independent measurements; never average ordinal scores.
+    if (manualStatus === "provided" && validLikelihood(manualData?.likelihood)) return { likelihood: manualData.likelihood, source: "Professional judgment", confidence: "requires_review" };
+    if (aiStatus === "completed" && validLikelihood(aiResults?.suggested_value)) return { likelihood: aiResults.suggested_value, source: "Evidence-supported suggestion", confidence: "requires_review" };
+    return null;
   };
 
   const recommendation = getSynthesizedRecommendation();
@@ -560,30 +513,8 @@ export function MultiToolAssessmentPanel({
     const prob100k = probs["100000"] || 0;
     const prob500k = probs["500000"] || 0;
     
-    let likelihoodGuidance = "";
-    let suggestedScore = 3;
-    
-    if (prob1M > 0.25) {
-      likelihoodGuidance = "These results suggest a HIGH probability score (5-6 on your scale). Large losses occur frequently in the simulations, indicating this hazard poses a significant recurring threat.";
-      suggestedScore = 6;
-    } else if (prob1M > 0.10) {
-      likelihoodGuidance = "These results suggest a MODERATE-HIGH probability score (4-5 on your scale). While not every year sees major losses, they occur often enough to warrant serious attention.";
-      suggestedScore = 5;
-    } else if (prob500k > 0.20) {
-      likelihoodGuidance = "These results suggest a MODERATE probability score (3-4 on your scale). Significant losses happen occasionally but are not rare events.";
-      suggestedScore = 4;
-    } else if (prob100k > 0.20) {
-      likelihoodGuidance = "These results suggest a LOW-MODERATE probability score (2-3 on your scale). Losses are possible but occur infrequently in most simulated scenarios.";
-      suggestedScore = 3;
-    } else if (prob100k > 0.05) {
-      likelihoodGuidance = "These results suggest a LOW probability score (1-2 on your scale). Large losses are uncommon in the simulations, though they remain possible.";
-      suggestedScore = 2;
-    } else {
-      likelihoodGuidance = "These results suggest a VERY LOW probability score (1 on your scale). Significant losses are rare events in the simulations.";
-      suggestedScore = 1;
-    }
-    
-    return { eal, p10, p50, p90, var95, prob1M, prob100k, prob500k, likelihoodGuidance, suggestedScore };
+    const likelihoodGuidance = "These are modeled financial losses under your assumptions. They do not determine a 1–6 event-likelihood score. Use event-frequency evidence or professional judgment for that score.";
+    return { eal, p10, p50, p90, var95, prob1M, prob100k, prob500k, likelihoodGuidance };
   };
 
   const isMultiTemplate = selectedTemplateIds.length > 1;
@@ -635,7 +566,7 @@ export function MultiToolAssessmentPanel({
                   {getStatusBadge(mcStatus)}
                 </div>
                 <CardDescription className="text-xs">
-                  {isMultiTemplate ? "Multi-scenario compound risk analysis" : "Probabilistic risk analysis with confidence intervals"}
+                  {isMultiTemplate ? "Multi-scenario compound risk analysis" : "Modeled financial loss distribution"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1347,7 +1278,7 @@ export function MultiToolAssessmentPanel({
                                 {interpretation.likelihoodGuidance}
                               </p>
                               <Badge className="mt-2 bg-blue-600 text-white">
-                                Suggested Score: {interpretation.suggestedScore}/6
+                                Financial loss model — no likelihood score
                               </Badge>
                             </div>
                           </AlertDescription>
@@ -1378,41 +1309,8 @@ export function MultiToolAssessmentPanel({
                       </Alert>
                     )}
 
-                    {/* Action Buttons */}
-                    {(() => {
-                      const interpretation = getInterpretation();
-                      const suggestedScore = interpretation?.suggestedScore || mapEalToLikelihood(mcResults.eal_amount);
-                      
-                      const getScoreButtonClass = (score: number) => {
-                        if (score >= 5) return "bg-destructive hover:bg-destructive/90 text-destructive-foreground";
-                        if (score >= 4) return "bg-orange-500 hover:bg-orange-600 text-white";
-                        if (score >= 3) return "bg-yellow-500 hover:bg-yellow-600 text-white";
-                        return "bg-green-600 hover:bg-green-700 text-white";
-                      };
-                      
-                      return (
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setMcMode("template_selection")}
-                            className="flex-1"
-                          >
-                            <Settings className="h-4 w-4 mr-1" />
-                            Adjust Parameters
-                          </Button>
-                          <Button
-                            onClick={() => onRecommendation({ 
-                              likelihood: suggestedScore, 
-                              source: mcResults.scenario_stats ? `Monte Carlo (${Object.keys(mcResults.scenario_stats).length} scenarios)` : "Monte Carlo Simulation" 
-                            })}
-                            className={`flex-1 ${getScoreButtonClass(suggestedScore)}`}
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Apply Score ({suggestedScore}/6)
-                          </Button>
-                        </div>
-                      );
-                    })()}
+                    <Button variant="outline" onClick={() => setMcMode("template_selection")}>Adjust simulation parameters</Button>
+
                   </div>
                 )}
               </CardContent>
@@ -1433,7 +1331,7 @@ export function MultiToolAssessmentPanel({
               </CardHeader>
               <CardContent className="py-3 px-4">
                 <p className="text-xs text-muted-foreground mb-3">
-                  Evidence-based analysis with sources and confidence levels
+                  Retrieved evidence with sources and applicability limits
                 </p>
                 <Button
                   variant={aiStatus === "completed" ? "outline" : "default"}
@@ -1455,13 +1353,13 @@ export function MultiToolAssessmentPanel({
                       <Card>
                         <CardContent className="pt-3">
                           <p className="text-xs text-muted-foreground">Suggested Score</p>
-                          <p className="text-xl font-bold text-primary">{aiResults.suggested_value as number}/6</p>
+                          <p className="text-xl font-bold text-primary">{validLikelihood(aiResults.suggested_value) ? aiResults.suggested_value + "/6" : "Insufficient evidence"}</p>
                         </CardContent>
                       </Card>
                       <Card>
                         <CardContent className="pt-3">
-                          <p className="text-xs text-muted-foreground">Confidence</p>
-                          <p className="text-xl font-bold">{Math.round((aiResults.confidence_level as number) * 100)}%</p>
+                          <p className="text-xs text-muted-foreground">Evidence quality</p>
+                          <p className="text-xl font-bold">{String(aiResults.data_quality || "unassessed")}</p>
                         </CardContent>
                       </Card>
                     </div>
@@ -1474,11 +1372,13 @@ export function MultiToolAssessmentPanel({
                     {(aiResults.sources as unknown[])?.length > 0 && (
                       <div className="p-3 bg-muted/50 rounded-lg">
                         <p className="text-xs text-muted-foreground">
-                          Sources: {(aiResults.sources as unknown[]).length} references found
+                          Sources: {(aiResults.sources as unknown[]).length} retrieved references
                         </p>
                       </div>
                     )}
+                    {Array.isArray(aiResults.sources) && aiResults.sources.map((source: any, i: number) => <a key={i} className="block text-sm underline" href={publicUrl(source.url) || undefined} target="_blank" rel="noopener noreferrer">{source.title}</a>)}
                     <Button
+                      disabled={!validLikelihood(aiResults.suggested_value)}
                       onClick={() => onRecommendation({ 
                         likelihood: aiResults.suggested_value as number, 
                         source: "AI Research" 

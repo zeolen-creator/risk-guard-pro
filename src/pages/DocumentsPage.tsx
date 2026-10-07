@@ -89,7 +89,9 @@ export default function DocumentsPage() {
 
     try {
       for (const file of Array.from(files)) {
-        const filePath = `${profile.org_id}/${Date.now()}_${file.name}`;
+        if (file.size > 50 * 1024 * 1024) throw new Error(`${file.name} exceeds 50 MB.`);
+        if (!/\.(pdf|docx?|xlsx?|csv|txt|md)$/i.test(file.name)) throw new Error(`${file.name} is not a supported document format.`);
+        const filePath = `${profile.org_id}/${crypto.randomUUID()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
         
         // Upload to storage
         const { error: uploadError } = await supabase.storage
@@ -110,14 +112,17 @@ export default function DocumentsPage() {
             uploaded_by: profile.user_id,
           });
 
-        if (dbError) throw dbError;
+        if (dbError) {
+          await supabase.storage.from("org-documents").remove([filePath]);
+          throw dbError;
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["org-documents"] });
       toast({ title: "Documents uploaded successfully" });
     } catch (error) {
       console.error("Upload error:", error);
-      toast({ title: "Error uploading documents", variant: "destructive" });
+      toast({ title: "Error uploading documents", description: error instanceof Error ? error.message : "Please retry.", variant: "destructive" });
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -157,6 +162,7 @@ export default function DocumentsPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Organization Documents</h1>
+          <Button asChild variant="outline" className="my-3"><Link to="/risk-intelligence">Use documents in Research & Scenarios</Link></Button>
           <p className="text-muted-foreground">
             Upload supporting documents for HIRA analysis (PDFs, reports, previous assessments)
           </p>
@@ -175,7 +181,7 @@ export default function DocumentsPage() {
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md"
                 multiple
                 onChange={handleFileUpload}
                 disabled={uploading}
@@ -195,7 +201,7 @@ export default function DocumentsPage() {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mt-2">
-              Maximum file size: 50MB per file
+              Upload limit: 50 MB per file. For AI analysis, select up to 3 documents, 10 MB each and 20 MB total. Upload research publications here too.
             </p>
           </CardContent>
         </Card>

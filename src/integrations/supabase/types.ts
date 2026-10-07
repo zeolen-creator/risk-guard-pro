@@ -14,6 +14,31 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_tool_runs: {
+        Row: { id: string; org_id: string; created_by: string; kind: string; status: string; model: string; method_version: string; output: Json | null; error_message: string | null; created_at: string; completed_at: string | null };
+        Insert: { org_id: string; created_by: string; kind: string; model: string; method_version: string };
+        Update: { status?: string; output?: Json; error_message?: string; completed_at?: string };
+        Relationships: [];
+      }
+      risk_intelligence_runs: {
+        Row: {
+          id: string; org_id: string; created_by: string; kind: string; status: string;
+          request: Json; context_snapshot: Json; sources: Json; output: Json | null;
+          research_text: string | null; error_message: string | null; model: string;
+          method_version: string; created_at: string; completed_at: string | null;
+        }
+        Insert: {
+          id?: string; org_id: string; created_by: string; kind: string; status?: string;
+          request: Json; context_snapshot: Json; sources?: Json; output?: Json | null;
+          research_text?: string | null; error_message?: string | null; model: string;
+          method_version: string; created_at?: string; completed_at?: string | null;
+        }
+        Update: {
+          status?: string; sources?: Json; output?: Json | null; research_text?: string | null;
+          error_message?: string | null; completed_at?: string | null;
+        }
+        Relationships: []
+      }
       ai_research_cache: {
         Row: {
           cache_key: string

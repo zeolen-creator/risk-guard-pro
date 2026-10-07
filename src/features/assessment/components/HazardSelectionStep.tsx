@@ -1,3 +1,4 @@
+import { publicUrl } from "../../../../supabase/functions/_shared/risk-evidence";
 import { useState, useEffect, useMemo } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,7 @@ export function HazardSelectionStep({
     data: recommendations,
     isLoading: recommendationsLoading,
     refetch,
+    error: recommendationError,
   } = useHazardRecommendations(hazards);
   const logOverride = useLogComplianceOverride();
 
@@ -269,6 +271,7 @@ export function HazardSelectionStep({
                 <p className="text-muted-foreground">{score.ai_reasoning}</p>
               </div>
             )}
+            {score?.sources?.map((source, index) => <a key={index} href={publicUrl(source.url) || undefined} target="_blank" rel="noopener noreferrer" className="block text-sm underline mb-2">{source.title}</a>)}
             {hazard.description && (
               <p className="text-sm text-muted-foreground mb-3">
                 {hazard.description}
@@ -438,6 +441,8 @@ export function HazardSelectionStep({
         />
       </div>
 
+      {recommendationError && <p role="alert" className="text-destructive">AI recommendations are unavailable. You can still select hazards manually, or refresh recommendations.</p>}
+      <p className="text-sm text-muted-foreground">Rankings are screening suggestions, not probabilities or verified legal requirements. Review local exposure and assumptions before selecting.</p>
       {recommendationsLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (

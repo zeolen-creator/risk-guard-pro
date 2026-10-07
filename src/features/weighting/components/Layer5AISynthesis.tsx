@@ -40,7 +40,7 @@ interface SynthesisResult {
     all_weights_positive: boolean;
     weights_within_reasonable_bounds: boolean;
     regulatory_compliance_confidence: string;
-    board_defensibility_score: number;
+    board_defensibility_score: number | null;
   };
 }
 
@@ -75,7 +75,7 @@ export function Layer5AISynthesis({
         .maybeSingle();
 
       if (error) { toast({ title: "Could not load saved synthesis", variant: "destructive" }); return; }
-      if (synthesis) {
+      if (synthesis && synthesis.all_checks_passed && (synthesis.consistency_checks as any)?.method_version === "hira-evidence-v2") {
         setSynthesisResult({
           recommended_weights: synthesis.recommended_weights as Record<string, number>,
           source_contributions: synthesis.source_weights as any,
@@ -165,6 +165,8 @@ export function Layer5AISynthesis({
     setIsSaving(true);
     try {
       // Update session
+      const fresh = await supabase.from("weighting_ai_synthesis").select("all_checks_passed,recommended_weights").eq("session_id",sessionId).single();
+      if (fresh.error || !fresh.data?.all_checks_passed || JSON.stringify(canonicalWeights(fresh.data.recommended_weights)) !== JSON.stringify(canonicalWeights(synthesisResult.recommended_weights))) throw new Error("Evidence changed. Regenerate the synthesis.");
       const weights = canonicalWeights(synthesisResult.recommended_weights);
       if (!validWeightTotal(weights)) throw new Error("Weights must sum to 100%");
       const { error } = await supabase
@@ -207,8 +209,8 @@ export function Layer5AISynthesis({
             Layer 5: AI-Powered Weight Synthesis
           </CardTitle>
           <CardDescription>
-            The AI analyzes all inputs from Layers 1-4 to generate scientifically justified,
-            legally compliant, and organizationally aligned consequence weights.
+            Review reproducible AHP priorities alongside regulatory, mission and scenario evidence.
+            AI explains the priorities and flags challenges; professional approval remains required.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -218,7 +220,7 @@ export function Layer5AISynthesis({
               <h3 className="text-lg font-medium mb-2">Ready to Synthesize</h3>
               <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
                 The AI will analyze your questionnaire responses, AHP weights, scenario validations,
-                and regulatory research to generate optimal consequence weights.
+                and regulatory research to review your AHP priorities. The calculation preserves your pairwise judgments; AI explains evidence and challenges.
               </p>
               <Button onClick={startSynthesis} size="lg">
                 <Brain className="mr-2 h-5 w-5" />

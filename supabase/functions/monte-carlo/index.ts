@@ -1,21 +1,18 @@
 import { requireOrganization, requireOrgResource } from "../_shared/authorization.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  sampleDistribution,
+  sampleEventCount,
+  simulateAnnualizedLoss,
+  validateDistribution,
+  type DistributionParams,
+} from "./simulation-math.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-interface DistributionParams {
-  type: "normal" | "lognormal" | "triangular" | "uniform" | "poisson";
-  min?: number;
-  max?: number;
-  mean?: number;
-  std?: number;
-  mode?: number;
-  lambda?: number;
-}
 
 interface TemplateConfig {
   id: string;
@@ -55,70 +52,6 @@ interface ScenarioStats {
   var_95: number;
   occurrence_rate: number;
   contribution_pct: number;
-}
-
-// Box-Muller transform for normal distribution
-function randomNormal(mean: number, std: number): number {
-  const u1 = Math.random();
-  const u2 = Math.random();
-  const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  return mean + z0 * std;
-}
-
-// Log-normal distribution
-function randomLognormal(mean: number, std: number): number {
-  const normalMean = Math.log(mean ** 2 / Math.sqrt(std ** 2 + mean ** 2));
-  const normalStd = Math.sqrt(Math.log(1 + std ** 2 / mean ** 2));
-  return Math.exp(randomNormal(normalMean, normalStd));
-}
-
-// Triangular distribution
-function randomTriangular(min: number, max: number, mode: number): number {
-  const u = Math.random();
-  const fc = (mode - min) / (max - min);
-  if (u < fc) {
-    return min + Math.sqrt(u * (max - min) * (mode - min));
-  }
-  return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
-}
-
-// Uniform distribution
-function randomUniform(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
-
-// Poisson distribution
-function randomPoisson(lambda: number): number {
-  if (lambda === 0) return 0;
-  const L = Math.exp(-lambda);
-  let k = 0;
-  let p = 1;
-  do {
-    k++;
-    p *= Math.random();
-  } while (p > L);
-  return k - 1;
-}
-
-function sampleDistribution(params: DistributionParams): number {
-  switch (params.type) {
-    case "normal":
-      return Math.max(0, randomNormal(params.mean || 0, params.std || 1));
-    case "lognormal":
-      return randomLognormal(params.mean || 1, params.std || 0.5);
-    case "triangular":
-      return randomTriangular(
-        params.min || 0,
-        params.max || 100,
-        params.mode || 50
-      );
-    case "uniform":
-      return randomUniform(params.min || 0, params.max || 100);
-    case "poisson":
-      return randomPoisson(params.lambda || 1);
-    default:
-      return params.mean || 0;
-  }
 }
 
 function calculateHistogram(losses: number[], iterations: number): HistogramBin[] {
@@ -212,22 +145,17 @@ function runSingleSimulation(params: SimulationParams): {
     bin_count: number;
   };
 } {
-  const iterations = params.iterations || 100000;
-  const timeHorizon = params.time_horizon_years || 1;
+  const iterations = params.iterations ?? 100000;
+  const timeHorizon = params.time_horizon_years ?? 1;
   const losses: number[] = [];
 
   for (let i = 0; i < iterations; i++) {
-    const frequency = sampleDistribution(params.frequency_distribution!);
-    const eventsThisYear = Math.round(frequency * timeHorizon);
-
-    let totalLoss = 0;
-    for (let j = 0; j < eventsThisYear; j++) {
-      const directCost = sampleDistribution(params.direct_cost_distribution!);
-      const indirectCost = sampleDistribution(params.indirect_cost_distribution!);
-      totalLoss += directCost + indirectCost;
-    }
-
-    losses.push(totalLoss);
+    losses.push(simulateAnnualizedLoss(
+      params.frequency_distribution!,
+      params.direct_cost_distribution!,
+      params.indirect_cost_distribution!,
+      timeHorizon,
+    ));
   }
 
   losses.sort((a, b) => a - b);
@@ -267,7 +195,7 @@ function runSingleSimulation(params: SimulationParams): {
 }
 
 // Run MULTI-TEMPLATE compound simulation
-function runCompoundSimulation(templates: TemplateConfig[], iterations: number): {
+function runCompoundSimulation(templates: TemplateConfig[], iterations: number, timeHorizon: number): {
   results: number[];
   eal_amount: number;
   percentile_10: number;
@@ -311,11 +239,10 @@ function runCompoundSimulation(templates: TemplateConfig[], iterations: number):
       const params = template.parameters;
       
       // Sample frequency (events per year for this scenario)
-      const frequency = sampleDistribution(params.frequency_distribution);
-      const numEvents = randomPoisson(frequency);
-      
+      const numEvents = sampleEventCount(params.frequency_distribution, timeHorizon);
+
       if (numEvents > 0) {
-        scenarioOccurrences[template.id]++;
+        scenarioOccurrences[template.id] += numEvents;
         scenariosThisYear++;
       }
       
@@ -328,7 +255,7 @@ function runCompoundSimulation(templates: TemplateConfig[], iterations: number):
         scenarioYearLoss += directCost + indirectCost;
       }
       
-      scenarioLosses[template.id].push(scenarioYearLoss);
+      scenarioLosses[template.id].push(scenarioYearLoss / timeHorizon);
       totalYearLoss += scenarioYearLoss;
     }
     
@@ -336,7 +263,7 @@ function runCompoundSimulation(templates: TemplateConfig[], iterations: number):
       multiScenarioYears++;
     }
     
-    losses.push(totalYearLoss);
+    losses.push(totalYearLoss / timeHorizon);
   }
   
   // Sort losses for percentile calculations
@@ -356,7 +283,7 @@ function runCompoundSimulation(templates: TemplateConfig[], iterations: number):
     const scenarioLossArray = [...scenarioLosses[template.id]].sort((a, b) => a - b);
     const scenarioEAL = scenarioLossArray.reduce((sum, l) => sum + l, 0) / iterations;
     const scenarioVar95 = scenarioLossArray[Math.floor(iterations * 0.95)];
-    const occurrenceRate = scenarioOccurrences[template.id] / iterations;
+    const occurrenceRate = scenarioOccurrences[template.id] / (iterations * timeHorizon);
     
     scenarioStats[template.id] = {
       template_name: template.name,
@@ -540,13 +467,21 @@ Deno.serve(async (req) => {
       console.log("Running Monte Carlo simulation with params:", JSON.stringify(params, null, 2));
       const startTime = Date.now();
 
-      const iterations = params.iterations || 100000;
-      const isMultiTemplate = params.templates && params.templates.length > 1;
+      const iterations = params.iterations ?? 100000;
+      const timeHorizon = params.time_horizon_years ?? 1;
+      if (!Number.isInteger(iterations) || iterations < 100 || iterations > 1000000) {
+        throw new Error("Iterations must be a whole number between 100 and 1,000,000.");
+      }
+      if (!Number.isFinite(timeHorizon) || timeHorizon <= 0 || timeHorizon > 50) {
+        throw new Error("Time horizon must be greater than 0 and no more than 50 years.");
+      }
+      const isMultiTemplate = Boolean(params.templates && params.templates.length > 1);
 
       let results;
       let templateIds: string[] = [];
       let combinationMethod = "single";
       let scenarioCount = 1;
+      let singleSimulationParams: SimulationParams | null = null;
 
       if (isMultiTemplate) {
         // Multi-template compound simulation
@@ -554,8 +489,16 @@ Deno.serve(async (req) => {
         templateIds = templates.map(t => t.id);
         combinationMethod = params.combination_method || "compound";
         scenarioCount = templates.length;
+        if (templates.length > 20) {
+          throw new Error("A simulation can include at most 20 scenarios at a time.");
+        }
+        for (const template of templates) {
+          validateDistribution(template.parameters.frequency_distribution, `${template.name} frequency`);
+          validateDistribution(template.parameters.direct_cost_distribution, `${template.name} direct cost`);
+          validateDistribution(template.parameters.indirect_cost_distribution, `${template.name} indirect cost`);
+        }
         
-        results = runCompoundSimulation(templates, iterations);
+        results = runCompoundSimulation(templates, iterations, timeHorizon);
       } else {
         // Single template or manual parameters (backward compatible)
         let simulationParams = params as SimulationParams;
@@ -570,11 +513,15 @@ Deno.serve(async (req) => {
           if (template?.default_parameters) {
             const defaultParams = template.default_parameters as Record<string, unknown>;
             simulationParams = {
-              ...defaultParams,
               ...params,
-              frequency_distribution: params.frequency_distribution || defaultParams.frequency_distribution,
-              direct_cost_distribution: params.direct_cost_distribution || defaultParams.direct_cost_distribution,
-              indirect_cost_distribution: params.indirect_cost_distribution || defaultParams.indirect_cost_distribution,
+              frequency_distribution: params.frequency_distribution ||
+                (defaultParams.frequency_distribution ?? defaultParams.frequency) as DistributionParams,
+              direct_cost_distribution: params.direct_cost_distribution ||
+                (defaultParams.direct_cost_distribution ?? defaultParams.direct_cost) as DistributionParams,
+              indirect_cost_distribution: params.indirect_cost_distribution ||
+                (defaultParams.indirect_cost_distribution ?? defaultParams.indirect_cost) as DistributionParams,
+              downtime_distribution: params.downtime_distribution ||
+                (defaultParams.downtime_distribution ?? defaultParams.downtime) as DistributionParams | undefined,
             } as SimulationParams;
           }
           templateIds = [params.template_id];
@@ -590,9 +537,18 @@ Deno.serve(async (req) => {
           templateIds = [template.id];
         }
 
+        if (!simulationParams.frequency_distribution || !simulationParams.direct_cost_distribution || !simulationParams.indirect_cost_distribution) {
+          throw new Error("The selected template is missing required simulation assumptions.");
+        }
+        validateDistribution(simulationParams.frequency_distribution, "Frequency");
+        validateDistribution(simulationParams.direct_cost_distribution, "Direct cost");
+        validateDistribution(simulationParams.indirect_cost_distribution, "Indirect cost");
+
+        singleSimulationParams = simulationParams;
         results = runSingleSimulation({
           ...simulationParams,
           iterations,
+          time_horizon_years: timeHorizon,
         });
       }
 
@@ -608,11 +564,11 @@ Deno.serve(async (req) => {
         combination_method: combinationMethod,
         scenario_count: scenarioCount,
         iterations: iterations,
-        time_horizon_years: params.time_horizon_years || 1,
-        frequency_distribution: isMultiTemplate ? params.templates[0].parameters.frequency_distribution : params.frequency_distribution,
-        direct_cost_distribution: isMultiTemplate ? params.templates[0].parameters.direct_cost_distribution : params.direct_cost_distribution,
-        indirect_cost_distribution: isMultiTemplate ? params.templates[0].parameters.indirect_cost_distribution : params.indirect_cost_distribution,
-        downtime_distribution: params.downtime_distribution || null,
+        time_horizon_years: timeHorizon,
+        frequency_distribution: isMultiTemplate ? params.templates[0].parameters.frequency_distribution : singleSimulationParams?.frequency_distribution,
+        direct_cost_distribution: isMultiTemplate ? params.templates[0].parameters.direct_cost_distribution : singleSimulationParams?.direct_cost_distribution,
+        indirect_cost_distribution: isMultiTemplate ? params.templates[0].parameters.indirect_cost_distribution : singleSimulationParams?.indirect_cost_distribution,
+        downtime_distribution: isMultiTemplate ? null : singleSimulationParams?.downtime_distribution || null,
         results: {
           sample: results.results,
           distribution: results.distribution,

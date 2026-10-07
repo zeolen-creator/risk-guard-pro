@@ -21,6 +21,7 @@ import AssessmentHistoryPage from "./pages/AssessmentHistoryPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import AssessmentComparisonPage from "./pages/AssessmentComparisonPage";
 import NotFound from "./pages/NotFound";
+import RiskIntelligencePage from "./pages/RiskIntelligencePage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/settings/weights/wizard/:sessionId" element={<ProtectedRoute><WeightingWizardPage /></ProtectedRoute>} />
             <Route path="/assessments/history" element={<ProtectedRoute><AssessmentHistoryPage /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+            <Route path="/risk-intelligence" element={<ProtectedRoute><RiskIntelligencePage /></ProtectedRoute>} />
             <Route path="/assessments/compare" element={<ProtectedRoute><AssessmentComparisonPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
