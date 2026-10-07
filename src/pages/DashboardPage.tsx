@@ -429,6 +429,9 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link to="/risk-intelligence">Research & Scenarios</Link>
+                </Button>
                 <Button className="w-full justify-start" asChild>
                   <Link to="/assessment/new">
                     <Plus className="h-4 w-4 mr-2" />

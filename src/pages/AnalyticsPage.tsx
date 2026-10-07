@@ -61,6 +61,7 @@ export default function AnalyticsPage() {
             </Link>
           </Button>
           <h1 className="text-3xl font-bold">Analytics & Insights</h1>
+          <Button asChild variant="outline" className="mt-3"><Link to="/risk-intelligence">Research, scenarios & reports</Link></Button>
           <p className="text-muted-foreground">
             Advanced risk analytics for {organization?.name}
           </p>
@@ -68,7 +69,7 @@ export default function AnalyticsPage() {
 
         <Tabs defaultValue="predictions" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto">
-            <TabsTrigger value="predictions" className="py-2">Predictions</TabsTrigger>
+            <TabsTrigger value="predictions" className="py-2">Risk Outlook</TabsTrigger>
             <TabsTrigger value="simulations" className="py-2">Simulations</TabsTrigger>
             <TabsTrigger value="benchmarking" className="py-2">Benchmarking</TabsTrigger>
             <TabsTrigger value="incidents" className="py-2">Incidents</TabsTrigger>

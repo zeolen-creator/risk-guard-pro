@@ -1,169 +1,24 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Thermometer, TrendingUp, Info, RefreshCw, ExternalLink } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useClimateRiskAdjustment, useFetchClimateAnalysis, isClimateRelated, getProjectionChange, getProjectedRiskScore } from "@/hooks/useClimateRisk";
-
-interface ClimateRiskWidgetProps {
-  hazardCategory: string;
-  location: string;
-  currentScore?: number;
+import { useClimateRiskAdjustment,useFetchClimateAnalysis,isClimateRelated } from "@/hooks/useClimateRisk";
+import { publicUrl } from "../../../../supabase/functions/_shared/risk-evidence";
+export function ClimateRiskWidget({hazardCategory,location}:{hazardCategory:string;location:string;currentScore?:number}){
+ const {data,isLoading,error}=useClimateRiskAdjustment(hazardCategory,location);
+ const analysis=useFetchClimateAnalysis();
+ if(!isClimateRelated(hazardCategory))return null;
+ return <Card><CardHeader><CardTitle>Climate evidence</CardTitle></CardHeader><CardContent className="space-y-3">
+  <p className="text-sm">Research public climate evidence for {hazardCategory} in {location}. Findings do not automatically change your HIRA score.</p>
+  {error&&<p role="alert" className="text-destructive">{error.message}</p>}
+  {isLoading&&<p>Loading saved evidence…</p>}
+  <Button disabled={analysis.isPending||!location} onClick={()=>analysis.mutate({hazardCategory,location})}>{analysis.isPending?"Researching…":data?"Refresh climate evidence":"Research climate evidence"}</Button>
+  {data&&<><p><strong>Direction:</strong> {data.direction} · AI draft</p><p>{data.summary_text}</p>
+   {data.findings.map((f,i)=><p key={i}>{f.finding} <span className="text-muted-foreground">[{f.source_ids.join(", ")}]</span></p>)}
+   {data.projections.length===0&&<p>No sufficiently specified numerical projections were extracted.</p>}
+   {data.projections.map((p,i)=><div key={i} className="border rounded p-3 text-sm"><strong>{p.metric}: {p.central} {p.unit}</strong><p>Reported range: {p.lower??"not reported"} – {p.upper??"not reported"}</p><p>Baseline: {p.baseline_period} · Future: {p.future_period}</p><p>Scenario: {p.scenario} · Geography: {p.geography}</p><p>{p.applicability} [{p.source_ids.join(", ")}]</p></div>)}
+   <h4 className="font-medium">Limitations</h4>{data.limitations.map((v,i)=><p className="text-sm" key={i}>{v}</p>)}
+   <h4 className="font-medium">Sources</h4>{data.data_sources.map(s=><a key={s.id} className="block text-sm underline" href={publicUrl(s.url)||undefined} target="_blank" rel="noopener noreferrer">{s.id}: {s.title}</a>)}
+   <p className="text-xs text-muted-foreground">Researched {new Date(data.last_updated).toLocaleString()}. Source extraction and local applicability require review.</p>
+  </>}
+ </CardContent></Card>;
 }
 
-export function ClimateRiskWidget({ hazardCategory, location, currentScore }: ClimateRiskWidgetProps) {
-  const [showDetails, setShowDetails] = useState(false);
-  const { data: climateData, isLoading } = useClimateRiskAdjustment(hazardCategory, location);
-  const fetchAnalysis = useFetchClimateAnalysis();
-
-  const isClimate = isClimateRelated(hazardCategory);
-
-  if (!isClimate) {
-    return null;
-  }
-
-  const handleFetchAnalysis = () => {
-    fetchAnalysis.mutate({ hazardCategory, location });
-  };
-
-  const getConfidenceColor = (level: string) => {
-    switch (level) {
-      case "high": return "bg-green-500/20 text-green-400";
-      case "medium": return "bg-yellow-500/20 text-yellow-400";
-      case "low": return "bg-orange-500/20 text-orange-400";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <Card className="bg-gradient-to-br from-blue-950/30 to-cyan-950/30 border-cyan-500/20">
-        <CardContent className="flex items-center justify-center p-6">
-          <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!climateData) {
-    return (
-      <Card className="bg-gradient-to-br from-blue-950/30 to-cyan-950/30 border-cyan-500/20">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Thermometer className="h-4 w-4 text-cyan-400" />
-            Climate Risk Projection
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-3">
-            Get AI-powered climate change projections for this hazard in your region.
-          </p>
-          <Button 
-            size="sm" 
-            onClick={handleFetchAnalysis}
-            disabled={fetchAnalysis.isPending}
-            className="w-full"
-          >
-            {fetchAnalysis.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Thermometer className="h-4 w-4 mr-2" />
-                Analyze Climate Impact
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="bg-gradient-to-br from-blue-950/30 to-cyan-950/30 border-cyan-500/20">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Thermometer className="h-4 w-4 text-cyan-400" />
-            Climate Risk Projection
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge className={getConfidenceColor(climateData.confidence_level)}>
-              {climateData.confidence_level} confidence
-            </Badge>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6"
-              onClick={handleFetchAnalysis}
-              disabled={fetchAnalysis.isPending}
-            >
-              <RefreshCw className={`h-3 w-3 ${fetchAnalysis.isPending ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
-        </div>
-        <CardDescription className="text-xs">
-          {hazardCategory} projections for {location}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { year: 2030, value: climateData.projection_2030 },
-            { year: 2040, value: climateData.projection_2040 },
-            { year: 2050, value: climateData.projection_2050 },
-          ].map(({ year, value }) => (
-            <div key={year} className="text-center p-2 rounded-lg bg-background/30">
-              <div className="text-xs text-muted-foreground">{year}</div>
-              <div className={`font-bold ${value > 1 ? "text-orange-400" : value < 1 ? "text-green-400" : "text-muted-foreground"}`}>
-                {getProjectionChange(value)}
-              </div>
-              {currentScore && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  Score: {getProjectedRiskScore(currentScore, value)}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {climateData.summary_text && (
-          <p className="text-xs text-muted-foreground border-t border-border/50 pt-3">
-            {climateData.summary_text}
-          </p>
-        )}
-
-        {climateData.data_sources && climateData.data_sources.length > 0 && (
-          <div className="space-y-1">
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
-            >
-              <Info className="h-3 w-3" />
-              {showDetails ? "Hide" : "View"} sources ({climateData.data_sources.length})
-            </button>
-            {showDetails && (
-              <div className="space-y-1 pl-4">
-                {climateData.data_sources.map((source, idx) => (
-                  <a
-                    key={idx}
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    {source.title}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}

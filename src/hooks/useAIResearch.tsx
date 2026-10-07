@@ -24,11 +24,11 @@ export interface ConsequenceInfo {
 }
 
 export interface AIResearchData {
-  suggested_value?: number;
+  suggested_value?: number | null;
   consequence_impacts?: ConsequenceImpact[];
   explanation: string;
   sources: AISource[];
-  confidence_level: number;
+  confidence_level: number | null;
   data_quality: "strong" | "moderate" | "limited" | "none";
   conflicting_data: boolean;
   conflict_explanation?: string;
@@ -77,11 +77,6 @@ export function useAIResearch() {
 
     const cacheKey = `${hazardId}_${researchType}`;
     
-    // Check local state cache first
-    if (results[cacheKey]?.success) {
-      return results[cacheKey];
-    }
-
     setIsLoading(true);
 
     try {
@@ -139,7 +134,7 @@ export function useAIResearch() {
         } else {
           toast({
             title: "Research Complete",
-            description: `Found ${result.data?.sources?.length || 0} sources with ${Math.round((result.data?.confidence_level || 0) * 100)}% confidence`,
+            description: `Found ${result.data?.sources?.length || 0} retrieved sources. Review applicability before applying scores.`,
           });
         }
       } else {
@@ -179,7 +174,7 @@ export function useAIResearch() {
 
   const getCachedResult = (hazardId: string, researchType: string): AIResearchResult | null => {
     const cacheKey = `${hazardId}_${researchType}`;
-    return results[cacheKey] || null;
+    return null; // Evidence is re-researched; never reuse a result for changed inputs.
   };
 
   return {
@@ -189,5 +184,6 @@ export function useAIResearch() {
     clearCache,
     getCachedResult,
     hasOrganizationContext: !!organization,
+    contextKey: JSON.stringify(organization),
   };
 }

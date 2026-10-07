@@ -22,6 +22,7 @@ export interface HazardScore {
   is_mandatory: boolean;
   regulatory_requirement?: RegulatoryRequirement;
   peer_adoption_rate: number | null;
+  sources?: Array<{ title: string; url: string }>;
 }
 
 export interface RecommendationStats {
@@ -49,7 +50,7 @@ export function useHazardRecommendations(hazards: Hazard[]) {
   const { session } = useAuth();
 
   return useQuery({
-    queryKey: ["hazard-recommendations", organization?.id, hazards.length],
+    queryKey: ["hazard-recommendations", organization, hazards.map(h => h.id)],
     queryFn: async (): Promise<{ scores: HazardScore[]; stats: RecommendationStats }> => {
       if (!organization || !session?.access_token || hazards.length === 0) {
         return { scores: [], stats: { total: 0, mandatory: 0, high_tier: 0, medium_tier: 0, low_tier: 0, cached: 0, ai_scored: 0 } };
@@ -101,6 +102,8 @@ export function useHazardRecommendations(hazards: Hazard[]) {
       };
     },
     enabled: !!organization?.id && !!session?.access_token && hazards.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
   });

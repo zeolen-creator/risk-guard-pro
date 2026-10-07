@@ -44,8 +44,8 @@ export function MonteCarloPanel() {
       toast.success(
         `Simulation complete! Expected Annual Loss: $${result.results.eal_amount.toLocaleString()}`
       );
-    } catch {
-      toast.error("Simulation failed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Simulation failed");
     }
   };
 
@@ -72,7 +72,7 @@ export function MonteCarloPanel() {
           Monte Carlo Risk Simulations
         </CardTitle>
         <CardDescription>
-          Run probabilistic simulations to estimate expected annual losses
+          Estimate annual loss using the selected frequency and cost assumptions. Results assume independent events and are not forecasts.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -222,7 +222,9 @@ export function MonteCarloPanel() {
                           {Object.entries(sim.probability_exceeds_threshold).map(
                             ([threshold, prob]) => (
                               <Badge key={threshold} variant="outline" className="text-xs">
-                                {threshold}: {prob}% chance
+                                P(annualized loss ≥ {formatCurrency(Number(threshold))}): {(
+                                  Number(prob) * 100
+                                ).toLocaleString(undefined, { maximumFractionDigits: 2 })}%
                               </Badge>
                             )
                           )}

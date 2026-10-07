@@ -17,7 +17,7 @@ interface WeightRecommendationsProps {
     all_weights_positive: boolean;
     weights_within_reasonable_bounds: boolean;
     regulatory_compliance_confidence: string;
-    board_defensibility_score: number;
+    board_defensibility_score: number | null;
   };
 }
 
@@ -49,7 +49,7 @@ export function WeightRecommendations({
         <CardHeader>
           <CardTitle>Recommended Consequence Weights</CardTitle>
           <CardDescription>
-            AI-synthesized weights based on all analysis layers
+            AHP priorities calculated from your comparisons; other evidence informs review
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -159,7 +159,7 @@ export function WeightRecommendations({
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-amber-500" />
                 )}
-                <span className="text-sm">All Positive</span>
+                <span className="text-sm">Nonnegative</span>
               </div>
               <div className="flex items-center gap-2">
                 {consistencyChecks.weights_within_reasonable_bounds ? (
@@ -167,7 +167,7 @@ export function WeightRecommendations({
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-amber-500" />
                 )}
-                <span className="text-sm">Reasonable Bounds</span>
+                <span className="text-sm">Within 0–100%</span>
               </div>
               <div className="flex items-center gap-2">
                 <Badge
@@ -179,27 +179,12 @@ export function WeightRecommendations({
                       : 'destructive'
                   }
                 >
-                  {consistencyChecks.regulatory_compliance_confidence} Compliance
+                  Compliance requires professional review
                 </Badge>
               </div>
             </div>
 
-            {consistencyChecks.board_defensibility_score && (
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Board Defensibility Score</span>
-                  <div className="flex items-center gap-2">
-                    <Progress
-                      value={consistencyChecks.board_defensibility_score}
-                      className="w-32"
-                    />
-                    <span className="font-bold">
-                      {consistencyChecks.board_defensibility_score}/100
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+
           </CardContent>
         </Card>
       )}

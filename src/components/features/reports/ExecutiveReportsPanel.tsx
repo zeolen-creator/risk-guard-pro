@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Plus, FileText, Download, Eye, Loader2, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -95,6 +96,7 @@ export function ExecutiveReportsPanel() {
 
   return (
     <Card>
+      <div className="px-6 pt-6"><Button asChild variant="outline"><Link to="/risk-intelligence?kind=report">Create an evidence-based executive & professional report</Link></Button></div>
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

@@ -9,6 +9,8 @@ test('saved synthesis approval, atomic version replacement and assessment snapsh
       'Property Damage','Infrastructure','Environmental','Economic','Reputational'];
     const keys = ['Fatalities','Injuries','Displacement','Psychosocial_Impact','Support_System_Impact',
       'Property_Damage','Infrastructure_Impact','Environmental_Damage','Economic_Impact','Reputational_Impact'];
+    // This test deliberately reorders the catalog; replace the migration's seeded fixtures.
+    await db.query('DELETE FROM consequences');
     for (const [i,name] of names.entries()) {
       await db.query('INSERT INTO consequences(category, category_number, description) VALUES($1,$2,$1)', [name,10-i]);
     }
