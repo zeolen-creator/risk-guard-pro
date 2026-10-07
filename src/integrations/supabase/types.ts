@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 32535)
+Total output lines: 3953
+
 export type Json =
   | string
   | number
@@ -1853,306 +1856,7 @@ export type Database = {
           hazard_id: string | null
           id: string
           implementation_completion_date: string | null
-          implementation_start_date: string | null
-          mitigation_strategy_id: string | null
-          notes: string | null
-          org_id: string
-          priority_rank: number | null
-          roi_score: number | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          annual_loss_estimate?: number | null
-          approved_at?: string | null
-          approved_by?: string | null
-          assessment_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          estimated_cost?: number | null
-          expected_risk_reduction_percent?: number | null
-          hazard_id?: string | null
-          id?: string
-          implementation_completion_date?: string | null
-          implementation_start_date?: string | null
-          mitigation_strategy_id?: string | null
-          notes?: string | null
-          org_id: string
-          priority_rank?: number | null
-          roi_score?: number | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          annual_loss_estimate?: number | null
-          approved_at?: string | null
-          approved_by?: string | null
-          assessment_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          estimated_cost?: number | null
-          expected_risk_reduction_percent?: number | null
-          hazard_id?: string | null
-          id?: string
-          implementation_completion_date?: string | null
-          implementation_start_date?: string | null
-          mitigation_strategy_id?: string | null
-          notes?: string | null
-          org_id?: string
-          priority_rank?: number | null
-          roi_score?: number | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organization_mitigations_assessment_id_fkey"
-            columns: ["assessment_id"]
-            isOneToOne: false
-            referencedRelation: "assessments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organization_mitigations_mitigation_strategy_id_fkey"
-            columns: ["mitigation_strategy_id"]
-            isOneToOne: false
-            referencedRelation: "mitigation_strategies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "organization_mitigations_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      organizations: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          industry_sub_sectors: string[] | null
-          industry_type: string | null
-          key_facilities: string[] | null
-          name: string
-          news_settings: Json | null
-          owner_id: string
-          primary_location: string | null
-          region: string
-          risk_appetite_config: Json | null
-          sector: string
-          size: string | null
-          updated_at: string
-          vulnerability_factors: Json | null
-          weights_configured: boolean
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          industry_sub_sectors?: string[] | null
-          industry_type?: string | null
-          key_facilities?: string[] | null
-          name: string
-          news_settings?: Json | null
-          owner_id: string
-          primary_location?: string | null
-          region: string
-          risk_appetite_config?: Json | null
-          sector: string
-          size?: string | null
-          updated_at?: string
-          vulnerability_factors?: Json | null
-          weights_configured?: boolean
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          industry_sub_sectors?: string[] | null
-          industry_type?: string | null
-          key_facilities?: string[] | null
-          name?: string
-          news_settings?: Json | null
-          owner_id?: string
-          primary_location?: string | null
-          region?: string
-          risk_appetite_config?: Json | null
-          sector?: string
-          size?: string | null
-          updated_at?: string
-          vulnerability_factors?: Json | null
-          weights_configured?: boolean
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          department: string | null
-          email: string | null
-          expertise: string | null
-          first_name: string | null
-          id: string
-          last_name: string | null
-          org_id: string | null
-          role_title: string | null
-          special_considerations: string | null
-          specific_facilities: string[] | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          department?: string | null
-          email?: string | null
-          expertise?: string | null
-          first_name?: string | null
-          id?: string
-          last_name?: string | null
-          org_id?: string | null
-          role_title?: string | null
-          special_considerations?: string | null
-          specific_facilities?: string[] | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          department?: string | null
-          email?: string | null
-          expertise?: string | null
-          first_name?: string | null
-          id?: string
-          last_name?: string | null
-          org_id?: string | null
-          role_title?: string | null
-          special_considerations?: string | null
-          specific_facilities?: string[] | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      regulatory_requirements: {
-        Row: {
-          created_at: string | null
-          effective_date: string | null
-          hazard_id: string
-          id: string
-          industry_type: string
-          non_compliance_consequences: string
-          province: string
-          regulation_name: string
-          regulation_section: string | null
-          requirement_description: string
-          source_url: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          effective_date?: string | null
-          hazard_id: string
-          id?: string
-          industry_type: string
-          non_compliance_consequences: string
-          province: string
-          regulation_name: string
-          regulation_section?: string | null
-          requirement_description: string
-          source_url?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          effective_date?: string | null
-          hazard_id?: string
-          id?: string
-          industry_type?: string
-          non_compliance_consequences?: string
-          province?: string
-          regulation_name?: string
-          regulation_section?: string | null
-          requirement_description?: string
-          source_url?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "regulatory_requirements_hazard_id_fkey"
-            columns: ["hazard_id"]
-            isOneToOne: false
-            referencedRelation: "hazards"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      risk_acceptance_records: {
-        Row: {
-          acceptance_rationale: string | null
-          accepted: boolean | null
-          accepted_at: string | null
-          accepted_by: string | null
-          assessment_id: string | null
-          compensating_controls: string[] | null
-          created_at: string | null
-          exceeds_appetite: boolean | null
-          hazard_id: string
-          id: string
-          org_id: string
-          review_date: string | null
-          risk_level: string
-          risk_score: number
-        }
-        Insert: {
-          acceptance_rationale?: string | null
-          accepted?: boolean | null
-          accepted_at?: string | null
-          accepted_by?: string | null
-          assessment_id?: string | null
-          compensating_controls?: string[] | null
-          created_at?: string | null
-          exceeds_appetite?: boolean | null
-          hazard_id: string
-          id?: string
-          org_id: string
-          review_date?: string | null
-          risk_level: string
-          risk_score: number
-        }
-        Update: {
-          acceptance_rationale?: string | null
-          accepted?: boolean | null
-          accepted_at?: string | null
-          accepted_by?: string | null
-          assessment_id?: string | null
-          compensating_controls?: string[] | null
-          created_at?: string | null
-          exceeds_appetite?: boolean | null
-          hazard_id?: string
-          id?: string
-          org_id?: string
-          review_date?: string | null
-          risk_level?: string
-          risk_score?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "risk_acceptance_records_assessment_id_fkey"
-            columns: ["assessment_id"]
-            isOneToOne: false
-            referencedRelation: "assessments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "risk_acceptance_records_org_id_fkey"
+   …2535 tokens truncated…key"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2367,6 +2071,8 @@ export type Database = {
           id: string
           region: string | null
           source_notes: string | null
+          source_quality: string
+          source_urls: Json
           template_name: string
         }
         Insert: {
@@ -2378,6 +2084,8 @@ export type Database = {
           id?: string
           region?: string | null
           source_notes?: string | null
+          source_quality?: string
+          source_urls?: Json
           template_name: string
         }
         Update: {
@@ -2389,6 +2097,8 @@ export type Database = {
           id?: string
           region?: string | null
           source_notes?: string | null
+          source_quality?: string
+          source_urls?: Json
           template_name?: string
         }
         Relationships: []
@@ -3944,3 +3654,4 @@ export const Constants = {
     },
   },
 } as const
+

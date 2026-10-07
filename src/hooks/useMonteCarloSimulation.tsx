@@ -11,6 +11,8 @@ export interface SimulationTemplate {
   region: string | null;
   default_parameters: Record<string, unknown>;
   source_notes: string | null;
+  source_quality: "illustrative" | "organization" | "published" | null;
+  source_urls: string[];
 }
 
 export interface MonteCarloSimulation {
@@ -122,3 +124,4 @@ export function useRunSimulation() {
     },
   });
 }
+
