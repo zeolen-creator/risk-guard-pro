@@ -125,3 +125,13 @@ export function useRunSimulation() {
   });
 }
 
+export function useResearchSimulationAssumptions() {
+  return useMutation({
+    mutationFn: async ({ templateId }: { templateId: string }) => {
+      const { data, error } = await supabase.functions.invoke("simulation-assumptions", { body: { template_id: templateId } });
+      if (error) throw error;
+      return data.data;
+    },
+  });
+}
+
